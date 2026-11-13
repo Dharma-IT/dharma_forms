@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { bookingConfig as config } from './booking-config'
 import './App.css'
+import { authenticatedFetch as fetch } from './auth'
 
 type Details = {
   agent: string; firstName: string; lastName: string; email: string; phone: string;

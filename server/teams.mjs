@@ -1,6 +1,7 @@
 import { Pool } from 'pg'
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises'
 import { biginRequest } from './submissions.mjs'
+import { supabaseAdmin } from './supabase.mjs'
 
 export const teamIds = ['agents', 'nutritionists', 'sellers', 'customer-service']
 const seed = teamIds.map(team => ({ team, id: '7692472000000645001', name: 'Jeuz Vinci Bas', bookingUrl: team === 'agents' ? '' : 'https://us.bigin.online/org945767910/bookings/it' }))
@@ -31,6 +32,11 @@ async function database() {
 }
 
 export async function getMembers() {
+  if (process.env.SUPABASE_URL) {
+    const { data, error } = await supabaseAdmin().from('booking_team_members').select('team,id,name,booking_url').order('name')
+    if (error) throw new Error(`Could not load team settings. Run the Supabase setup SQL. (${error.code || 'database error'})`)
+    return data.map(row => ({ team: row.team, id: row.id, name: row.name, bookingUrl: row.booking_url }))
+  }
   const db = await database()
   if (db) return (await db.query('SELECT team,id,name,booking_url AS "bookingUrl" FROM booking_team_members ORDER BY name')).rows
   try { return JSON.parse(await readFile(file, 'utf8')) }
@@ -71,6 +77,14 @@ export function validateMember(input, users) {
 export async function changeMember(input, remove = false) {
   if (!teamIds.includes(input.team) || typeof input.id !== 'string' || !/^\d+$/.test(input.id)) throw new Error('Select a valid team and user.')
   const member = remove ? input : validateMember(input, await getBiginUsers())
+  if (process.env.SUPABASE_URL) {
+    const client = supabaseAdmin()
+    const { error } = remove
+      ? await client.from('booking_team_members').delete().eq('team', member.team).eq('id', member.id)
+      : await client.from('booking_team_members').upsert({ team: member.team, id: member.id, name: member.name, booking_url: member.bookingUrl }, { onConflict: 'team,id' })
+    if (error) throw new Error(`Could not save team settings. Check the Supabase table and server key. (${error.code || 'database error'})`)
+    return getMembers()
+  }
   const db = await database()
   if (!db && process.env.RENDER) throw new Error('Configure DATABASE_URL on Render before saving shared team settings.')
   if (db) {

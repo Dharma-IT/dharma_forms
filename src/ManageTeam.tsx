@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import './ManageTeam.css'
+import { authenticatedFetch as fetch } from './auth'
 
 type Member = { team: string; id: string; name: string; bookingUrl: string }
 type User = { id: string; name: string; email: string }

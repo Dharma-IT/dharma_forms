@@ -179,3 +179,38 @@ Deployment setup:
 Locally, with no DATABASE_URL, team settings persist in ignored
 `.team-settings/members.json`. Submission receipts still use the existing local
 filesystem and are separate from team storage.
+
+## Supabase storage and sign-in (current deployment)
+
+This supersedes the standalone PostgreSQL setup above. Run `supabase/setup.sql`
+in the Supabase SQL Editor. It creates and seeds team tables once, enables RLS,
+and grants writes only to the server's service role. Browser users deliberately
+have no table access: the backend verifies sign-in, the management PIN, and Bigin
+identity before changing assignments. No DATABASE_URL is needed with this setup.
+
+Set these in Render (and the ignored local .env):
+
+- SUPABASE_URL: https://abiojwgzcdnxgfxfdmza.supabase.co (no /rest/v1 suffix)
+- SUPABASE_PUBLISHABLE_KEY: the project's publishable key
+- SUPABASE_SECRET_KEY: the project's secret key; backend only
+- MANAGE_TEAM_PIN: the existing management PIN
+- Existing BIGIN_* and ALLOWED_ORIGINS settings stay required.
+
+No Vercel environment variables are needed: `/api/auth/config` serves only the
+project URL and publishable key. All other endpoints require a Supabase user
+access token, verified with Supabase Auth. `/manage-team` additionally requires
+the PIN. Refresh tokens are managed by the Supabase browser SDK. Signing out
+unmounts the booking/editor UI and clears the in-memory management PIN.
+
+Create employee accounts in Supabase Authentication > Users. The app has sign-in
+only, with no public registration UI. Disable "Allow new users to sign up" in
+Supabase Auth settings if this is an employee-only project; every confirmed user
+in this project can access bookings, and users with the PIN can manage teams.
+Existing users in the project can sign in using their email and password.
+Set Auth Site URL to https://dharma-forms.vercel.app and configure appropriate
+redirect URLs if you later use invitations or password recovery. Password
+recovery is currently handled by your administrator, not an in-app flow.
+
+Team assignments persist in Supabase. Existing local team settings are not
+migrated automatically; the SQL seeds the initial assignment once. Existing
+submission idempotency receipts remain filesystem-based and are not migrated.

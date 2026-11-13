@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import ManageTeam from './ManageTeam.tsx'
+import AuthGate from './AuthGate.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {window.location.pathname.replace(/\/$/, '') === '/manage-team' ? <ManageTeam /> : <App />}
+    <AuthGate>{window.location.pathname.replace(/\/$/, '') === '/manage-team' ? <ManageTeam /> : <App />}</AuthGate>
   </StrictMode>,
 )
