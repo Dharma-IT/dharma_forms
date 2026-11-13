@@ -5,6 +5,13 @@ import { createSubmission, getFormMetadata } from './submissions.mjs'
 
 const directory = new URL('../.bigin-submissions/', import.meta.url)
 await mkdir(directory, { recursive: true })
+// Exact frontend origins only; include the production Vercel URL in Render.
+const allowedOrigins = new Set([
+  'http://127.0.0.1:5173',
+  'http://localhost:5173',
+  'http://127.0.0.1:3001',
+  ...(process.env.ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean),
+])
 const pending = new Set()
 const server = createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json')
@@ -16,7 +23,7 @@ const server = createServer(async (req, res) => {
       return reply(200, { pipelines: metadata.pipelines.map(({ id, name, subPipelines, stages, fields }) => ({ id, name, subPipelines, stages, channels: fields.find(f => f.api_name === 'Channel')?.pick_list_values?.map(v => v.actual_value).filter(v => v !== '-None-') || [], sources: fields.find(f => f.api_name === 'Lead_Source' || f.field_label === 'Source')?.pick_list_values?.map(v => v.actual_value).filter(v => v !== '-None-') || [] })) })
     }
     if (req.method !== 'POST' || req.url !== '/api/bigin/submissions') return reply(404, {error:'Not found'})
-    if (req.headers.origin && !['http://127.0.0.1:5173','http://localhost:5173','http://127.0.0.1:3001'].includes(req.headers.origin)) return reply(403,{error:'Origin not allowed'})
+    if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403,{error:'Origin not allowed'})
     if (!req.headers['content-type']?.startsWith('application/json')) return reply(415,{error:'JSON required'})
     const key = req.headers['idempotency-key']
     if (typeof key !== 'string' || !/^[a-f0-9-]{36}$/.test(key)) return reply(400,{error:'A valid submission key is required'})

@@ -114,3 +114,29 @@ export default defineConfig([
 ])
 
 ```
+
+## Render backend and Vercel frontend
+
+The frontend uses relative `/api` requests. Locally, Vite forwards them to
+`http://127.0.0.1:3001`. On Vercel, `vercel.json` forwards them to
+`https://dharma-forms.onrender.com/api/*`. No frontend API URL or Bigin secrets
+are needed in Vercel.
+
+1. Push the deployment configuration and let Render deploy the latest commit.
+2. Render: leave Root Directory blank, use `npm ci` for Build Command and
+   `node server/api.mjs` for Start Command. Configure the `BIGIN_*` values from
+   `.env.example` as server environment variables.
+3. Import this repository into Vercel with the Vite preset, repository root,
+   build command `npm run build`, and output directory `dist`.
+4. In Render, set `ALLOWED_ORIGINS` to the exact Vercel production origin,
+   for example `https://your-project.vercel.app` (no trailing slash). Multiple
+   trusted domains can be comma-separated. Save and redeploy the backend.
+   Preview deployments need their exact origins added separately.
+5. Check `https://your-project.vercel.app/api/bigin/options` returns JSON with
+   `pipelines`. Then verify a submission with an intended CRM record.
+
+The root Render URL returns JSON `Not found` because this service hosts only
+API endpoints. `GET /api/bigin/options` is the read-only connection check.
+Employee authentication and durable submission receipts are still needed for
+production use; an origin allowlist does not authenticate employees, and the
+free Render filesystem does not preserve receipts reliably.
