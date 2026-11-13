@@ -14,6 +14,7 @@ function Field({ label, required = true, children }: { label: string; required?:
   return <label className="field"><span>{label}{required && <span className="required">*</span>}</span>{children}</label>
 }
 function App() {
+  const [members, setMembers] = useState<{ team: string; id: string; name: string; bookingUrl: string }[]>([])
   const [details, setDetails] = useState<Details>(initial)
   const [step, setStep] = useState(1)
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
@@ -24,6 +25,11 @@ function App() {
   const submittedDetails = useRef('')
   useEffect(() => {
     const controller = new AbortController()
+    fetch('/api/teams', { signal: controller.signal }).then(async response => {
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Could not load team members.')
+      setMembers(data.members)
+    }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
     fetch('/api/bigin/options', { signal: controller.signal }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not load Bigin pipelines.')
@@ -32,13 +38,14 @@ function App() {
     return () => controller.abort()
   }, [])
   const teams = [
-    { id: 'nutritionists', name: 'Nutritionist', personLabel: 'Nutritionist', members: config.nutritionists },
-    { id: 'sellers', name: 'Sellers', personLabel: 'Seller', members: config.sellers },
-    { id: 'customer-service', name: 'Customer Service', personLabel: 'Customer Service Agent', members: config.customerService },
+    { id: 'nutritionists', name: 'Nutritionist', personLabel: 'Nutritionist', members: members.filter(member => member.team === 'nutritionists') },
+    { id: 'sellers', name: 'Sellers', personLabel: 'Seller', members: members.filter(member => member.team === 'sellers') },
+    { id: 'customer-service', name: 'Customer Service', personLabel: 'Customer Service Agent', members: members.filter(member => member.team === 'customer-service') },
   ]
   const team = teams.find(item => item.id === details.team)
   const host = team?.members.find(item => item.id === details.host)
-  const agent = config.agents.find(item => item.id === details.agent)
+  const agents = members.filter(member => member.team === 'agents')
+  const agent = agents.find(item => item.id === details.agent)
   const pipeline = pipelines.find(item => item.id === details.pipeline)
   const update = (key: keyof Details, value: string) => setDetails(current => ({ ...current, [key]: value, ...(key === 'team' ? { host: '' } : {}), ...(key === 'pipeline' ? { stage: '', channel: '', source: '' } : {}) }))
   const input = (key: keyof Details, type = 'text', autocomplete?: string) => <input type={type} value={details[key]} onChange={e => update(key, e.target.value)} required autoComplete={autocomplete} />
@@ -78,7 +85,7 @@ function App() {
       {step === 1 ? <form onSubmit={next}>
         {error && <p className="connection-note" role="alert">{error}</p>}
         <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        <Field label="Agent (You)">{select('agent', config.agents, 'Select booking agent')}</Field>
+        <Field label="Agent (You)">{select('agent', agents, 'Select booking agent')}</Field>
         <div className="section-label">CLIENT DETAILS</div>
         <div className="two-col"><Field label="Client’s First Name">{input('firstName', 'text', 'given-name')}</Field><Field label="Client’s Last Name">{input('lastName', 'text', 'family-name')}</Field></div>
         <Field label="Client’s Email">{input('email', 'email', 'email')}</Field>

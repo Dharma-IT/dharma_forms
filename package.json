@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "server": "node --env-file=.env server/api.mjs",
-    "test:bigin": "node --test server/submissions.test.mjs",
+    "test:bigin": "node --test server/submissions.test.mjs server/teams.test.mjs",
     "bigin:connect": "node --env-file=.env server/bigin-cli.mjs connect",
     "bigin:check": "node --env-file=.env server/bigin-cli.mjs check",
     "dev": "vite",
@@ -14,6 +14,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

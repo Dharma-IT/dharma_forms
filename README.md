@@ -140,3 +140,42 @@ API endpoints. `GET /api/bigin/options` is the read-only connection check.
 Employee authentication and durable submission receipts are still needed for
 production use; an origin allowlist does not authenticate employees, and the
 free Render filesystem does not preserve receipts reliably.
+
+## Manage team
+
+Open `/manage-team` directly. It has no link on the booking form and no dashboard.
+A blurred placeholder and PIN modal appear until the server accepts the PIN.
+The default PIN is `1234`; override it with server-only `MANAGE_TEAM_PIN`
+(4–12 digits). The PIN is held only in component memory and cleared on lock or
+refresh. Ten incorrect attempts temporarily block management requests for one
+minute. The booking form necessarily exposes assigned members and their public
+calendar links through `/api/teams`; the Bigin directory and management writes
+require the PIN.
+
+The page lists Booking agents, Nutritionists, Sellers, and Customer Service.
+Choose an active, confirmed Bigin account, assign its team, and save an HTTPS
+calendar link. Members can belong to multiple teams. Edit updates an existing
+assignment; Remove only removes that assignment, never the Bigin account.
+The backend rechecks Bigin before each add/update and uses Bigin's name and ID.
+Host teams require a calendar link; Booking agents can omit one. Use an
+embeddable public booking URL. Refresh the booking form to load changes.
+
+Deployment setup:
+
+1. Create a PostgreSQL database and set Render's `DATABASE_URL` to its connection
+   string (prefer Render's internal URL in the same region). Tables are created
+   automatically. Existing test assignments are seeded once; deleting all
+   assignments does not reseed them. Render blocks management saves without a
+   database so changes cannot silently disappear after a restart.
+2. Set `MANAGE_TEAM_PIN=1234` on Render, or leave unset for the requested default.
+3. Generate a new Zoho Self Client code with all existing scopes plus user read:
+   `ZohoBigin.modules.ALL,ZohoSearch.securesearch.READ,ZohoBigin.settings.fields.READ,ZohoBigin.settings.layouts.READ,ZohoBigin.users.READ`.
+   Run `npm run bigin:connect`, then copy the new `BIGIN_REFRESH_TOKEN` from the
+   ignored local `.env` into Render. Do not remove the existing module/settings
+   scopes or put credentials in Vercel.
+4. Push the changes and deploy both services. Vercel's explicit `/manage-team`
+   rewrite enables direct page visits.
+
+Locally, with no DATABASE_URL, team settings persist in ignored
+`.team-settings/members.json`. Submission receipts still use the existing local
+filesystem and are separate from team storage.
