@@ -27,10 +27,12 @@ const server = createServer(async (req, res) => {
       return reply(200, { members })
     }
     if (req.url?.startsWith('/api/manage-team')) {
+      const managementPin = process.env.MANAGE_TEAM_PIN
+      if (!managementPin || !/^\d{4,12}$/.test(managementPin)) return reply(503, { error: 'Team management is unavailable. Configure MANAGE_TEAM_PIN on the server.' })
       if (Date.now() - pinWindow > 60000) { failedPins = 0; pinWindow = Date.now() }
       if (failedPins >= 10) return reply(429, { error: 'Too many PIN attempts. Try again in a minute.' })
       const provided = hash('sha256').update(String(req.headers['x-management-pin'] || '')).digest()
-      const expected = hash('sha256').update(process.env.MANAGE_TEAM_PIN || '1234').digest()
+      const expected = hash('sha256').update(managementPin).digest()
       if (!timingSafeEqual(provided, expected)) { failedPins++; return reply(401, { error: 'Incorrect PIN.' }) }
       if (req.method === 'GET' && req.url === '/api/manage-team') return reply(200, { members: await getMembers() })
       if (req.method === 'GET' && req.url === '/api/manage-team/users') return reply(200, { users: await getBiginUsers() })

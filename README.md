@@ -145,8 +145,8 @@ free Render filesystem does not preserve receipts reliably.
 
 Open `/manage-team` directly. It has no link on the booking form and no dashboard.
 A blurred placeholder and PIN modal appear until the server accepts the PIN.
-The default PIN is `1234`; override it with server-only `MANAGE_TEAM_PIN`
-(4–12 digits). The PIN is held only in component memory and cleared on lock or
+Set the required server-only `MANAGE_TEAM_PIN` environment variable. There is no default; management is unavailable if it is missing or invalid.
+(4â€“12 digits). The PIN is held only in component memory and cleared on lock or
 refresh. Ten incorrect attempts temporarily block management requests for one
 minute. The booking form necessarily exposes assigned members and their public
 calendar links through `/api/teams`; the Bigin directory and management writes
@@ -167,7 +167,7 @@ Deployment setup:
    automatically. Existing test assignments are seeded once; deleting all
    assignments does not reseed them. Render blocks management saves without a
    database so changes cannot silently disappear after a restart.
-2. Set `MANAGE_TEAM_PIN=1234` on Render, or leave unset for the requested default.
+2. Set `MANAGE_TEAM_PIN` on Render to your chosen 4-12 digit PIN. Locally, set it in the ignored `.env` file. Never commit the PIN or prefix it with `VITE_`.
 3. Generate a new Zoho Self Client code with all existing scopes plus user read:
    `ZohoBigin.modules.ALL,ZohoSearch.securesearch.READ,ZohoBigin.settings.fields.READ,ZohoBigin.settings.layouts.READ,ZohoBigin.users.READ`.
    Run `npm run bigin:connect`, then copy the new `BIGIN_REFRESH_TOKEN` from the
