@@ -39,4 +39,7 @@ const server = createServer(async (req, res) => {
     } finally { pending.delete(key) }
   } catch(error) { reply(400,{error: error instanceof SyntaxError ? 'Invalid JSON request' : error.message}) }
 })
-server.listen(3001,'127.0.0.1',()=>console.log('Bigin local API: http://127.0.0.1:3001'))
+const port = Number(process.env.PORT || 3001)
+server.listen(port, '0.0.0.0', () => {
+  console.log(`Bigin API listening on port ${port}`)
+})
