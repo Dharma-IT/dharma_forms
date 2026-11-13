@@ -9,7 +9,8 @@ type Details = {
   dialCode: string; language: string; state: string; channel: string; source: string;
   team: string; host: string; pipeline: string; stage: string; notes: string
 }
-const initial: Details = { agent: '', firstName: '', lastName: '', email: '', phone: '', dialCode: '+63', language: '', state: '', channel: '', source: '', team: '', host: '', pipeline: '', stage: '', notes: '' }
+const bookingStage = 'Evaluation Scheduled'
+const initial: Details = { agent: '', firstName: '', lastName: '', email: '', phone: '', dialCode: '+63', language: '', state: '', channel: '', source: '', team: '', host: '', pipeline: '', stage: bookingStage, notes: '' }
 type Pipeline = { id: string; name: string; subPipelines: string[]; stages: string[]; channels: string[]; sources: string[] }
 function Field({ label, required = true, children }: { label: string; required?: boolean; children: ReactNode }) {
   return <label className="field"><span>{label}{required && <span className="required">*</span>}</span>{children}</label>
@@ -48,7 +49,8 @@ function App() {
   const agents = members.filter(member => member.team === 'agents')
   const agent = agents.find(item => item.id === details.agent)
   const pipeline = pipelines.find(item => item.id === details.pipeline)
-  const update = (key: keyof Details, value: string) => setDetails(current => ({ ...current, [key]: value, ...(key === 'team' ? { host: '' } : {}), ...(key === 'pipeline' ? { stage: '', channel: '', source: '' } : {}) }))
+  const stageAvailable = pipeline?.stages.includes(bookingStage)
+  const update = (key: keyof Details, value: string) => setDetails(current => ({ ...current, [key]: value, ...(key === 'team' ? { host: '' } : {}), ...(key === 'pipeline' ? { stage: bookingStage, channel: '', source: '' } : {}) }))
   const input = (key: keyof Details, type = 'text', autocomplete?: string) => <input type={type} value={details[key]} onChange={e => update(key, e.target.value)} required autoComplete={autocomplete} />
   const select = (key: keyof Details, options: { id: string; name: string }[], placeholder: string) => <select required value={details[key]} onChange={e => update(key, e.target.value)}><option value="" disabled>{placeholder}</option>{options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}</select>
   const choices = (key: keyof Details, options: string[], placeholder: string) => select(key, options.map(value => ({ id: value, name: value })), placeholder)
@@ -94,16 +96,19 @@ function App() {
         <div className="two-col"><Field label="Preferred Language">{choices('language', config.languages, 'Select language')}</Field><Field label="State">{choices('state', config.states, 'Select a U.S. state')}</Field></div>
         <div className="section-label">DEAL DETAILS</div>
         <Field label="Save deal to pipeline">{select('pipeline', pipelines.length ? pipelines : config.pipelines, 'Select a pipeline')}</Field>
-        {pipeline && <Field label="Stage">{choices('stage', pipeline.stages, 'Select a stage')}</Field>}
+        <Field label="Stage"><input value={bookingStage} readOnly /></Field>
+        {pipeline && !stageAvailable && <p className="connection-note" role="alert">Evaluation Scheduled is unavailable in this pipeline. Update the Bigin pipeline before saving.</p>}
+        <Field label="Appointment time zone"><input value="Eastern Time — New York (America/New_York)" readOnly /></Field>
         <div className="two-col"><Field label="Channel">{choices('channel', config.channels, 'Select channel')}</Field><Field label="Source">{choices('source', config.sources, 'Select source')}</Field></div>
         <Field label="Book with">{select('team', teams, 'Select a team')}</Field>
         {team && <Field label={team.personLabel}>{select('host', team.members, `Select a ${team.personLabel.toLowerCase()}`)}</Field>}
-        <button className="primary" type="submit" disabled={saving || !pipeline}>{saving ? 'Saving to Bigin…' : 'Save contact & deal, then choose a time'} <span aria-hidden="true">→</span></button>
+        <button className="primary" type="submit" disabled={saving || !pipeline || !stageAvailable}>{saving ? 'Saving to Bigin…' : 'Save contact & deal, then choose a time'} <span aria-hidden="true">→</span></button>
         <p className="form-footnote">This saves the deal before calendar booking. An existing email reuses the contact without changing its details.</p>
         </fieldset>
       </form> : <div className="calendar-step">
         <div className="summary"><div className="avatar">{details.firstName[0]}{details.lastName[0]}</div><div><strong>{details.firstName} {details.lastName}</strong><span>{details.email}</span></div><button type="button" onClick={() => setStep(1)}>Edit details</button></div>
         <dl className="booking-summary"><div><dt>Meeting with</dt><dd>{host?.name}<br /><small>{team?.name}</small></dd></div><div><dt>Booked by</dt><dd>{agent?.name}</dd></div><div><dt>Deal pipeline</dt><dd>{pipeline?.name}</dd></div></dl>
+        <p className="connection-note">Book in Eastern Time — New York (America/New_York). Select this timezone in the calendar below before choosing a time. New York observes EST in winter and EDT in summer.</p>
         {bookingUrl ? <><iframe key={host?.id} className="booking-frame" title={`Book a meeting with ${host?.name}`} src={bookingUrl} referrerPolicy="strict-origin-when-cross-origin" /><a className="calendar-link" href={bookingUrl} target="_blank" rel="noreferrer">Open calendar in a new tab ↗</a><p className="form-footnote">Complete the booking in the calendar to receive its confirmation. Client details may need to be entered again.</p></> : <div className="calendar-placeholder"><span className="calendar-icon" aria-hidden="true">▦</span><h3>Your team member’s calendar goes here.</h3><p>The form is ready to preview. Add this team member’s Bigin Booking Page link to enable appointment scheduling.</p><span className="preview-pill">PREVIEW · NO APPOINTMENT BOOKED</span></div>}
         <div className="connection-note" role="status">{saved?.contactReused ? 'Existing contact linked.' : 'Contact created.'} Deal saved to {pipeline?.name}. The appointment is only booked after you complete the calendar.</div>
         <button className="back-button" type="button" onClick={() => setStep(1)}>← Back to details</button>

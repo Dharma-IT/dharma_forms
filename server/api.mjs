@@ -62,6 +62,8 @@ const server = createServer(async (req, res) => {
     let raw = ''
     for await (const chunk of req) { raw += chunk; if (raw.length > 16000) return reply(413,{error:'Request too large'}) }
     const details = JSON.parse(raw)
+    // This booking form always creates deals at the evaluation scheduling stage.
+    details.stage = 'Evaluation Scheduled'
     const members = await getMembers()
     if (!members.some(member => member.team === 'agents' && member.id === details.agent) || !members.some(member => member.team === details.team && member.id === details.host)) return reply(400, { error: 'Select a current team member and booking agent. Refresh the form.' })
     const fingerprint = createHash('sha256').update(JSON.stringify(details)).digest('hex')
