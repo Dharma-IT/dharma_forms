@@ -63,7 +63,7 @@ function inserted(result, module) {
   return row.details.id
 }
 
-export async function createSubmission(details, progress, request = biginRequest, metadataLoader = getFormMetadata, save = async () => {}, agentName, hostName) {
+export async function createSubmission(details, progress, request = biginRequest, metadataLoader = getFormMetadata, save = async () => {}, agentName) {
   for (const key of ['firstName', 'lastName', 'email', 'phone', 'dialCode', 'language', 'state', 'channel', 'source', 'pipeline', 'stage', 'host', 'agent', 'team']) {
     if (typeof details[key] !== 'string' || !details[key].trim() || details[key].length > 255) throw new Error(`A valid ${key} is required.`)
   }
@@ -117,9 +117,9 @@ export async function createSubmission(details, progress, request = biginRequest
   }
   if (!progress.dealId) {
     const clientName = `${details.firstName.trim()} ${details.lastName.trim()}`
-    const teamLabel = { sellers: 'Seller', nutritionists: 'Nutritionist', 'customer-service': 'Customer Service' }[details.team]
-    const dealName = hostName?.trim() && teamLabel
-      ? `${teamLabel} ${hostName.trim()} - ${clientName}`
+    const teamLabel = { sellers: 'Sellers', nutritionists: 'Nutri', 'customer-service': 'CS' }[details.team]
+    const dealName = teamLabel
+      ? `${teamLabel} - ${clientName}`
       : `${clientName} - Consultation`
     const deal = {
       Deal_Name: dealName,
