@@ -15,3 +15,11 @@
   .calendar-layout h1 { font-size: 32px; }
   .calendar-layout h1 br { display: none; }
 }
+.summary .client-summary { min-width: 0; }
+.summary .copy-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.summary .copy-row > span { overflow-wrap: anywhere; }
+.summary .copy-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin: 0; padding: 5px; border: 0; border-radius: 4px; background: transparent; color: #947232; cursor: pointer; text-decoration: none; }
+.summary .copy-button:hover { background: #ebe3d4; }
+.summary .copy-button:focus-visible { outline: 2px solid #947232; outline-offset: 2px; }
+.summary .copy-status { font-size: 10px; color: #657185; }
+.summary .copy-status:empty { display: none; }

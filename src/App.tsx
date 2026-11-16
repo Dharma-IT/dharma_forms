@@ -15,6 +15,23 @@ type Pipeline = { id: string; name: string; subPipelines: string[]; stages: stri
 function Field({ label, required = true, children }: { label: string; required?: boolean; children: ReactNode }) {
   return <label className="field"><span>{label}{required && <span className="required">*</span>}</span>{children}</label>
 }
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [status, setStatus] = useState('')
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value)
+      setStatus(`${label} copied`)
+    } catch {
+      setStatus(`Could not copy ${label.toLowerCase()}. Select and copy the text manually.`)
+    }
+  }
+  return <>
+    <button className="copy-button" type="button" aria-label={`Copy ${label.toLowerCase()}`} title={`Copy ${label.toLowerCase()}`} onClick={copy}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4" /></svg>
+    </button>
+    <span className="copy-status" role="status">{status}</span>
+  </>
+}
 function App() {
   const [members, setMembers] = useState<{ team: string; id: string; name: string; bookingUrl: string }[]>([])
   const [details, setDetails] = useState<Details>(initial)
@@ -112,10 +129,11 @@ function App() {
         <Field label="Book with">{select('team', teams, 'Select a team')}</Field>
         {team && <Field label={team.personLabel}>{select('host', team.members, `Select a ${team.personLabel.toLowerCase()}`)}</Field>}
         <button className="primary" type="submit" disabled={saving || !pipeline || !stageAvailable}>{saving ? 'Saving to Bigin…' : 'Save contact & deal, then choose a time'} <span aria-hidden="true">→</span></button>
+        {error && <p className="connection-note" role="alert">{error}</p>}
         <p className="form-footnote">This saves the deal before calendar booking. An existing email reuses the contact without changing its details.</p>
         </fieldset>
       </form> : <div className="calendar-step">
-        <div className="summary"><div className="avatar">{details.firstName[0]}{details.lastName[0]}</div><div><strong>{details.firstName} {details.lastName}</strong><span>{details.email}</span></div><button type="button" onClick={() => setStep(1)}>Edit details</button></div>
+        <div className="summary"><div className="avatar">{details.firstName[0]}{details.lastName[0]}</div><div className="client-summary"><div className="copy-row"><strong>{details.firstName} {details.lastName}</strong><CopyButton value={`${details.firstName.trim()} ${details.lastName.trim()}`} label="Name" /></div><div className="copy-row"><span>{details.email}</span><CopyButton value={details.email.trim()} label="Email" /></div></div><button type="button" onClick={() => setStep(1)}>Edit details</button></div>
         <dl className="booking-summary"><div><dt>Meeting with</dt><dd>{host?.name}<br /><small>{team?.name}</small></dd></div><div><dt>Booked by</dt><dd>{agent?.name}</dd></div><div><dt>Deal pipeline</dt><dd>{pipeline?.name}</dd></div></dl>
         <p className="connection-note">Book in Eastern Time — New York (America/New_York). Select this timezone in the calendar below before choosing a time. New York observes EST in winter and EDT in summer.</p>
         {bookingUrl ? <><iframe key={host?.id} className="booking-frame" title={`Book a meeting with ${host?.name}`} src={bookingUrl} referrerPolicy="strict-origin-when-cross-origin" /><a className="calendar-link" href={bookingUrl} target="_blank" rel="noreferrer">Open calendar in a new tab ↗</a><p className="form-footnote">Complete the booking in the calendar to receive its confirmation. Client details may need to be entered again.</p></> : <div className="calendar-placeholder"><span className="calendar-icon" aria-hidden="true">▦</span><h3>Your team member’s calendar goes here.</h3><p>The form is ready to preview. Add this team member’s Bigin Booking Page link to enable appointment scheduling.</p><span className="preview-pill">PREVIEW · NO APPOINTMENT BOOKED</span></div>}
