@@ -44,10 +44,10 @@ test('email duplicate race links existing contact',async()=>{
  assert.equal(result.contactId,'existing');assert.equal(result.contactReused,true)
 })
 
-test('renamed Channel labels map to Bigin actual values',()=>{
+test('renamed Channel labels save the selected display label',()=>{
  const field={api_name:'Channel',pick_list_values:[{display_value:'Call',actual_value:'Doxy'},{display_value:'Message',actual_value:'WhatsApp'}]}
- assert.equal(mapChoice(field,'Call'),'Doxy')
- assert.equal(mapChoice(field,'Message'),'WhatsApp')
+ assert.equal(mapChoice(field,'Call','display_value'),'Call')
+ assert.equal(mapChoice(field,'Message','display_value'),'Message')
  assert.throws(()=>mapChoice(field,'Facebook'),/available Bigin option/)
 })
 test('TikTok maps to actual Tiktok without changing visible form spelling',()=>{

@@ -45,7 +45,7 @@ export async function getFormMetadata(request = biginRequest) {
 function fieldByLabel(fields, label) {
   return fields.find(field => String(field.field_label || field.display_label).toLowerCase() === label.toLowerCase())
 }
-export function mapChoice(field, value) {
+export function mapChoice(field, value, valueKey = 'actual_value') {
   if (!field?.pick_list_values?.length) return value
   const normalized = value.trim().toLowerCase()
   const matches = field.pick_list_values.filter(item =>
@@ -54,7 +54,7 @@ export function mapChoice(field, value) {
   if (matches.length !== 1 || matches[0].actual_value === '-None-') {
     throw new Error(`The selected ${field.field_label || field.api_name} is not an available Bigin option.`)
   }
-  return matches[0].actual_value
+  return matches[0][valueKey] || matches[0].actual_value
 }
 
 function inserted(result, module) {
@@ -84,7 +84,7 @@ export async function createSubmission(details, progress, request = biginRequest
   const channel = fieldByLabel(pipeline.fields, 'Channel') || fieldByLabel(pipeline.fields, 'Chanel')
   const source = fieldByLabel(pipeline.fields, 'Source') || fieldByLabel(pipeline.fields, 'Lead Source')
   if (!channel || !source) throw new Error('Add Channel and Source fields to the selected Bigin pipeline before saving.')
-  const channelValue = mapChoice(channel, details.channel)
+  const channelValue = mapChoice(channel, details.channel, 'display_value')
   const sourceValue = mapChoice(source, details.source)
   const dealAgent = fieldByLabel(pipeline.fields, 'Agent Lead Management')
   let agentValue
