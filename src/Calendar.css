@@ -6,16 +6,16 @@
 .calendar-toolbar button, .calendar-toolbar input, .calendar-toolbar select, .calendar-selection button { border: 1px solid #d5e2da; background: white; border-radius: 8px; padding: 10px 12px; color: #003d2b; font: inherit; font-size: 13px; }
 .calendar-toolbar button { cursor: pointer; }
 .calendar-zone { font-size: 12px; color: #617a6e; margin: 22px 0 12px; }
-.calendar-scroll { overflow: auto; max-height: 75vh; border: 1px solid #f3f8f4; border-radius: 12px; background: white; }
+.calendar-scroll { overflow: auto; max-height: 75vh; border: 2px solid #9bb5a7; border-radius: 12px; background: white; }
 .calendar-grid { display: grid; min-width: max-content; }
-.calendar-person { position: sticky; top: 0; z-index: 3; background: #f6f8fb; padding: 14px 12px; border-right: 1px solid #f3f8f4; border-bottom: 1px solid #f3f8f4; }
+.calendar-person { position: sticky; top: 0; z-index: 3; background: #f6f8fb; padding: 14px 12px; border-right: 2px solid #9bb5a7; border-bottom: 2px solid #789b88; }
 .calendar-person strong, .calendar-person span, .calendar-person small { display: block; font-size: 12px; }
 .calendar-person span { margin: 5px 0; font-size: 11px; }
 .calendar-person small { font-size: 10px; color: #617a6e; }
 .calendar-hours, .calendar-day { height: 1536px; position: relative; }
-.calendar-hours { position: sticky; left: 0; z-index: 2; background: white; border-right: 1px solid #f3f8f4; }
+.calendar-hours { position: sticky; left: 0; z-index: 2; background: white; border-right: 2px solid #9bb5a7; }
 .calendar-hours span { position: absolute; right: 8px; font-size: 10px; padding-top: 4px; }
-.calendar-day { border-right: 1px solid #f3f8f4; background: repeating-linear-gradient(to bottom, transparent 0px, transparent 63px, #f3f8f4 63px, #f3f8f4 64px); }
+.calendar-day { border-right: 2px solid #9bb5a7; background: repeating-linear-gradient(to bottom, transparent 0px, transparent 62px, #b2c6bb 62px, #b2c6bb 64px); }
 .calendar-event { position: absolute; overflow: hidden; text-align: left; border: 1px solid white; border-radius: 5px; padding: 3px 6px; cursor: pointer; color: #003d2b; min-width: 0; }
 .seller-event { background: #f3f8f4; }
 .cs-event { background: #eee1c7; }
