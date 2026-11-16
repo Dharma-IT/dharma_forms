@@ -31,7 +31,7 @@ export default function Calendar() {
     const controller = new AbortController()
     authenticatedFetch(`/api/calendar?date=${date}`, { signal: controller.signal }).then(async response => {
       const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Could not load calendar.')
+      if (!response.ok) throw new Error(response.status === 404 ? 'Calendar service is unavailable. Deploy the latest backend update on Render, then refresh.' : result.error || 'Could not load calendar.')
       if (!controller.signal.aborted) setData(result)
     }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
@@ -51,9 +51,9 @@ export default function Calendar() {
   const people = data.people.filter(person => team === 'all' || person.teams.includes(team))
   const events = data.events.filter(event => minute(event.end, date) > 0 && minute(event.start, date) < 1440)
   return <main className="team-calendar">
-    <header className="calendar-toolbar"><div><a href="/">Booking form</a><h1>Team calendar</h1></div><button onClick={() => selectDate(dateKey(new Date()))}>Today</button><button aria-label="Previous day" onClick={() => changeDay(-1)}>?</button><label>Date<input type="date" value={date} onChange={event => { if (event.target.value) selectDate(event.target.value) }} /></label><button aria-label="Next day" onClick={() => changeDay(1)}>?</button><label>Team<select value={team} onChange={event => setTeam(event.target.value)}><option value="all">Sellers & Customer Service</option><option value="sellers">Sellers</option><option value="customer-service">Customer Service</option></select></label><button onClick={() => selectDate(date)} disabled={loading}>Refresh</button></header>
-    <p className="calendar-zone">Eastern Time Â· America/New_York</p>
-    {loading ? <p role="status">Loading schedulesâ€¦</p> : error ? <p role="alert">{error}</p> : people.length === 0 ? <p>No team members configured for this team.</p> : <div className="calendar-scroll"><div className="calendar-grid" style={{ gridTemplateColumns: `72px repeat(${people.length}, minmax(200px, 1fr))` }}>
+    <header className="calendar-toolbar"><div><a href="/">Booking form</a><h1>Team calendar</h1></div><button onClick={() => selectDate(dateKey(new Date()))}>Today</button><button aria-label="Previous day" onClick={() => changeDay(-1)}>Previous</button><label>Date<input type="date" value={date} onChange={event => { if (event.target.value) selectDate(event.target.value) }} /></label><button aria-label="Next day" onClick={() => changeDay(1)}>Next</button><label>Team<select value={team} onChange={event => setTeam(event.target.value)}><option value="all">Sellers & Customer Service</option><option value="sellers">Sellers</option><option value="customer-service">Customer Service</option></select></label><button onClick={() => selectDate(date)} disabled={loading}>Refresh</button></header>
+    <p className="calendar-zone">Eastern Time (America/New_York)</p>
+    {loading ? <p role="status">Loading schedules...</p> : error ? <p role="alert">{error}</p> : people.length === 0 ? <p>No team members configured for this team.</p> : <div className="calendar-scroll"><div className="calendar-grid" style={{ gridTemplateColumns: `72px repeat(${people.length}, minmax(200px, 1fr))` }}>
       <div className="calendar-person time-heading">Time</div>{people.map(person => <div className="calendar-person" key={person.id}><strong>{person.name}</strong><span>{person.email || 'Email unavailable'}</span><small>{person.teams.map(value => value === 'sellers' ? 'Seller' : 'Customer Service').join(' / ')}</small></div>)}
       <div className="calendar-hours">{Array.from({ length: 24 }, (_, hour) => <span key={hour} style={{ top: hour * 64 }}>{hour % 12 || 12} {hour < 12 ? 'AM' : 'PM'}</span>)}</div>
       {people.map(person => {
@@ -64,10 +64,10 @@ export default function Calendar() {
           if (group && group.some(other => minute(other.end, date) > minute(event.start, date))) group.push(event)
           else groups.push([event])
         }
-        return <div className="calendar-day" key={person.id}>{groups.flatMap(group => group.map((event, index) => <button key={event.id} className={`calendar-event ${person.teams.includes('sellers') ? 'seller-event' : 'cs-event'}`} style={{ top: minute(event.start, date) * 64 / 60, height: Math.max(22, (minute(event.end, date) - minute(event.start, date)) * 64 / 60), left: `${index * 100 / group.length}%`, width: `${100 / group.length}%` }} onClick={() => setSelected(event)} title={`${event.title}\n${timeFormat.format(new Date(event.start))} â€“ ${timeFormat.format(new Date(event.end))}`}><strong>{event.title}</strong><span>{event.allDay ? 'All day' : `${timeFormat.format(new Date(event.start))} â€“ ${timeFormat.format(new Date(event.end))}`}</span></button>))}</div>
+        return <div className="calendar-day" key={person.id}>{groups.flatMap(group => group.map((event, index) => <button key={event.id} className={`calendar-event ${person.teams.includes('sellers') ? 'seller-event' : 'cs-event'}`} style={{ top: minute(event.start, date) * 64 / 60, height: Math.max(22, (minute(event.end, date) - minute(event.start, date)) * 64 / 60), left: `${index * 100 / group.length}%`, width: `${100 / group.length}%` }} onClick={() => setSelected(event)} title={`${event.title}\n${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}><strong>{event.title}</strong><span>{event.allDay ? 'All day' : `${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}</span></button>))}</div>
       })}
     </div></div>}
-    {selected && <section className="calendar-selection" aria-label="Selected event"><button onClick={() => setSelected(null)}>Close</button><h2>{selected.title}</h2><p>{data.people.find(person => person.id === selected.ownerId)?.email}</p><p>{new Intl.DateTimeFormat('en-US', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selected.start))} â€“ {new Intl.DateTimeFormat('en-US', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selected.end))} Â· Eastern Time</p></section>}
+    {selected && <section className="calendar-selection" aria-label="Selected event"><button onClick={() => setSelected(null)}>Close</button><h2>{selected.title}</h2><p>{data.people.find(person => person.id === selected.ownerId)?.email}</p><p>{new Intl.DateTimeFormat('en-US', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selected.start))} - {new Intl.DateTimeFormat('en-US', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selected.end))} - Eastern Time</p></section>}
   </main>
 }
 
