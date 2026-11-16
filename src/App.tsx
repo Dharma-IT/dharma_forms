@@ -72,6 +72,15 @@ function App() {
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not reach Bigin. Please retry.') }
     finally { setSaving(false) }
   }
+  function startNewBooking() {
+    submissionKey.current = crypto.randomUUID()
+    submittedDetails.current = ''
+    setDetails({ ...initial })
+    setSaved(null)
+    setError('')
+    setStep(1)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   let bookingUrl = ''
   try { const url = new URL(host?.bookingUrl || ''); if (url.protocol === 'https:') bookingUrl = url.href } catch { /* Host has no configured booking page yet. */ }
   return <main className={`booking-layout${step === 2 ? ' calendar-layout' : ''}`}>
@@ -111,6 +120,7 @@ function App() {
         <p className="connection-note">Book in Eastern Time — New York (America/New_York). Select this timezone in the calendar below before choosing a time. New York observes EST in winter and EDT in summer.</p>
         {bookingUrl ? <><iframe key={host?.id} className="booking-frame" title={`Book a meeting with ${host?.name}`} src={bookingUrl} referrerPolicy="strict-origin-when-cross-origin" /><a className="calendar-link" href={bookingUrl} target="_blank" rel="noreferrer">Open calendar in a new tab ↗</a><p className="form-footnote">Complete the booking in the calendar to receive its confirmation. Client details may need to be entered again.</p></> : <div className="calendar-placeholder"><span className="calendar-icon" aria-hidden="true">▦</span><h3>Your team member’s calendar goes here.</h3><p>The form is ready to preview. Add this team member’s Bigin Booking Page link to enable appointment scheduling.</p><span className="preview-pill">PREVIEW · NO APPOINTMENT BOOKED</span></div>}
         <div className="connection-note" role="status">{saved?.contactReused ? 'Existing contact linked.' : 'Contact created.'} Deal saved to {pipeline?.name}. The appointment is only booked after you complete the calendar.</div>
+        <button className="primary" type="button" onClick={startNewBooking}>Book another appointment</button>
         <button className="back-button" type="button" onClick={() => setStep(1)}>← Back to details</button>
       </div>}
     </section>
