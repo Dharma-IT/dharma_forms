@@ -5,6 +5,7 @@ import { createSubmission, getFormMetadata } from './submissions.mjs'
 import { timingSafeEqual, createHash as hash } from 'node:crypto'
 import { getMembers, getBiginUsers, changeMember } from './teams.mjs'
 import { authenticate, publicAuthConfig } from './supabase.mjs'
+import { getCalendar } from './calendar.mjs'
 
 const directory = new URL('../.bigin-submissions/', import.meta.url)
 await mkdir(directory, { recursive: true })
@@ -26,6 +27,10 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/auth/config') return reply(200, publicAuthConfig())
     const user = await authenticate(req.headers.authorization)
     if (!user) return reply(401, { error: 'Sign in to continue.' })
+    if (req.method === 'GET' && req.url?.startsWith('/api/calendar?')) {
+      const url = new URL(req.url, 'http://localhost')
+      return reply(200, await getCalendar(url.searchParams.get('date')))
+    }
     if (req.method === 'GET' && req.url === '/api/teams') {
       const members = await getMembers()
       return reply(200, { members })

@@ -4,6 +4,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/calendar", "destination": "/index.html" },
+    { "source": "/calendar/", "destination": "/index.html" },
     { "source": "/manage-team", "destination": "/index.html" },
     { "source": "/manage-team/", "destination": "/index.html" },
     {

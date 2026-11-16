@@ -1,0 +1,73 @@
+import { useEffect, useState } from 'react'
+import { authenticatedFetch } from './auth'
+import './Calendar.css'
+
+type Person = { id: string; name: string; email: string; teams: string[] }
+type CalendarEvent = { id: string; title: string; start: string; end: string; ownerId: string; allDay: boolean }
+const zone = 'America/New_York'
+const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' })
+function dateKey(value: Date) {
+  const parts = dayFormat.formatToParts(value)
+  return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)?.value).join('-')
+}
+const timeFormat = new Intl.DateTimeFormat('en-US', { timeZone: zone, hour: 'numeric', minute: '2-digit' })
+function minute(value: string, day: string) {
+  const date = new Date(value)
+  const key = dateKey(date)
+  if (key < day) return 0
+  if (key > day) return 1440
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date)
+  return Number(parts.find(part => part.type === 'hour')?.value) * 60 + Number(parts.find(part => part.type === 'minute')?.value)
+}
+export default function Calendar() {
+  const [date, setDate] = useState(() => dateKey(new Date()))
+  const [data, setData] = useState<{ people: Person[]; events: CalendarEvent[] }>({ people: [], events: [] })
+  const [team, setTeam] = useState('all')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [revision, setRevision] = useState(0)
+  const [selected, setSelected] = useState<CalendarEvent | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    authenticatedFetch(`/api/calendar?date=${date}`, { signal: controller.signal }).then(async response => {
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not load calendar.')
+      if (!controller.signal.aborted) setData(result)
+    }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [date, revision])
+  function selectDate(value: string) {
+    setLoading(true)
+    setError('')
+    setSelected(null)
+    setDate(value)
+    setRevision(current => current + 1)
+  }
+  function changeDay(amount: number) {
+    const next = new Date(`${date}T12:00:00Z`)
+    next.setUTCDate(next.getUTCDate() + amount)
+    selectDate(next.toISOString().slice(0, 10))
+  }
+  const people = data.people.filter(person => team === 'all' || person.teams.includes(team))
+  const events = data.events.filter(event => minute(event.end, date) > 0 && minute(event.start, date) < 1440)
+  return <main className="team-calendar">
+    <header className="calendar-toolbar"><div><a href="/">Booking form</a><h1>Team calendar</h1></div><button onClick={() => selectDate(dateKey(new Date()))}>Today</button><button aria-label="Previous day" onClick={() => changeDay(-1)}>?</button><label>Date<input type="date" value={date} onChange={event => { if (event.target.value) selectDate(event.target.value) }} /></label><button aria-label="Next day" onClick={() => changeDay(1)}>?</button><label>Team<select value={team} onChange={event => setTeam(event.target.value)}><option value="all">Sellers & Customer Service</option><option value="sellers">Sellers</option><option value="customer-service">Customer Service</option></select></label><button onClick={() => selectDate(date)} disabled={loading}>Refresh</button></header>
+    <p className="calendar-zone">Eastern Time Â· America/New_York</p>
+    {loading ? <p role="status">Loading schedulesâ€¦</p> : error ? <p role="alert">{error}</p> : people.length === 0 ? <p>No team members configured for this team.</p> : <div className="calendar-scroll"><div className="calendar-grid" style={{ gridTemplateColumns: `72px repeat(${people.length}, minmax(200px, 1fr))` }}>
+      <div className="calendar-person time-heading">Time</div>{people.map(person => <div className="calendar-person" key={person.id}><strong>{person.name}</strong><span>{person.email || 'Email unavailable'}</span><small>{person.teams.map(value => value === 'sellers' ? 'Seller' : 'Customer Service').join(' / ')}</small></div>)}
+      <div className="calendar-hours">{Array.from({ length: 24 }, (_, hour) => <span key={hour} style={{ top: hour * 64 }}>{hour % 12 || 12} {hour < 12 ? 'AM' : 'PM'}</span>)}</div>
+      {people.map(person => {
+        const ownEvents = events.filter(event => event.ownerId === person.id).sort((a, b) => minute(a.start, date) - minute(b.start, date))
+        const groups: CalendarEvent[][] = []
+        for (const event of ownEvents) {
+          const group = groups[groups.length - 1]
+          if (group && group.some(other => minute(other.end, date) > minute(event.start, date))) group.push(event)
+          else groups.push([event])
+        }
+        return <div className="calendar-day" key={person.id}>{groups.flatMap(group => group.map((event, index) => <button key={event.id} className={`calendar-event ${person.teams.includes('sellers') ? 'seller-event' : 'cs-event'}`} style={{ top: minute(event.start, date) * 64 / 60, height: Math.max(22, (minute(event.end, date) - minute(event.start, date)) * 64 / 60), left: `${index * 100 / group.length}%`, width: `${100 / group.length}%` }} onClick={() => setSelected(event)} title={`${event.title}\n${timeFormat.format(new Date(event.start))} â€“ ${timeFormat.format(new Date(event.end))}`}><strong>{event.title}</strong><span>{event.allDay ? 'All day' : `${timeFormat.format(new Date(event.start))} â€“ ${timeFormat.format(new Date(event.end))}`}</span></button>))}</div>
+      })}
+    </div></div>}
+    {selected && <section className="calendar-selection" aria-label="Selected event"><button onClick={() => setSelected(null)}>Close</button><h2>{selected.title}</h2><p>{data.people.find(person => person.id === selected.ownerId)?.email}</p><p>{new Intl.DateTimeFormat('en-US', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selected.start))} â€“ {new Intl.DateTimeFormat('en-US', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selected.end))} Â· Eastern Time</p></section>}
+  </main>
+}
+
