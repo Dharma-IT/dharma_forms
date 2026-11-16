@@ -102,7 +102,7 @@ function App() {
   try { const url = new URL(host?.bookingUrl || ''); if (url.protocol === 'https:') bookingUrl = url.href } catch { /* Host has no configured booking page yet. */ }
   return <main className={`booking-layout${step === 2 ? ' calendar-layout' : ''}`}>
     <aside className="intro">
-      <a className="brand" href="/" aria-label="Dharma Nutrition Clinic home"><span className="brand-mark" aria-hidden="true">D<span>C</span></span><span className="brand-name">DHARMA</span><span className="brand-subtitle">NUTRITION CLINIC</span></a>
+      <a className="brand" href="/" aria-label="Dharma Nutrition Clinic home"><img className="brand-logo" src="/DHARMA%20-%20LOGO%20(9).png" alt="" /><span className="brand-name">DHARMA</span><span className="brand-subtitle">NUTRITION CLINIC</span></a>
       <div className="eyebrow">A LITTLE TIME. A NEW BEGINNING.</div>
       <h1>Schedule a<br />meeting with<br />our <em>team.</em></h1>
       <p className="intro-copy">Make the right connection.<br />Book a conversation for your client.</p>
