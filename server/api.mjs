@@ -76,7 +76,8 @@ const server = createServer(async (req, res) => {
       if(progress.dealId) return reply(200,{contactId:progress.contactId,dealId:progress.dealId,contactReused:progress.contactReused})
       if(progress.dealAttempted) return reply(409,{error:'A previous deal save may have completed. Check Bigin before starting another submission.'})
       const save = value => writeFile(file,JSON.stringify(value),{mode:0o600})
-      const result = await createSubmission(details,progress,undefined,undefined,save)
+      const bookingAgent = members.find(member => member.team === 'agents' && member.id === details.agent)
+      const result = await createSubmission(details,progress,undefined,undefined,save,bookingAgent.name)
       reply(200,result)
     } finally { pending.delete(key) }
   } catch(error) { reply(400,{error: error instanceof SyntaxError ? 'Invalid JSON request' : error.message}) }

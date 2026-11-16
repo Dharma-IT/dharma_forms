@@ -75,3 +75,29 @@ test('renamed sub-pipeline sends its current record name',async()=>{
  assert.equal(payload.Sub_Pipeline,'New Leads')
  assert.deepEqual(payload.Pipeline,{id:'123',name:'New Leads'})
 })
+
+test('booking agent name maps to the Agent Lead Management dropdown value', async () => {
+ const loader = async () => {
+  const result = await metadata()
+  result.pipelines[0].fields.push({field_label:'Agent Lead Management',api_name:'Agent_Lead_Management',data_type:'picklist',pick_list_values:[{display_value:'Laura Garcia',actual_value:'Laura Garcia CRM'}]})
+  return result
+ }
+ let payload
+ await createSubmission(details,{contactId:'existing'},async(path,method,body)=>{payload=body.data[0];return success('deal')},loader,undefined,'Laura Garcia')
+ assert.equal(payload.Agent_Lead_Management,'Laura Garcia CRM')
+ assert.deepEqual(payload.Owner,{id:details.host})
+ let calls = 0
+ await assert.rejects(createSubmission(details,{},async()=>{calls++;return {}},loader,undefined,'Missing Agent'),/Add "Missing Agent" to the Agent Lead Management dropdown/)
+ assert.equal(calls,0)
+})
+
+test('Agent Lead Management user lookups continue using the selected agent ID', async () => {
+ const loader = async () => {
+  const result = await metadata()
+  result.pipelines[0].fields.push({field_label:'Agent Lead Management',api_name:'Agent_Lead_Management',data_type:'userlookup'})
+  return result
+ }
+ let payload
+ await createSubmission(details,{contactId:'existing'},async(path,method,body)=>{payload=body.data[0];return success('deal')},loader)
+ assert.deepEqual(payload.Agent_Lead_Management,{id:details.agent})
+})

@@ -63,7 +63,7 @@ function inserted(result, module) {
   return row.details.id
 }
 
-export async function createSubmission(details, progress, request = biginRequest, metadataLoader = getFormMetadata, save = async () => {}) {
+export async function createSubmission(details, progress, request = biginRequest, metadataLoader = getFormMetadata, save = async () => {}, agentName) {
   for (const key of ['firstName', 'lastName', 'email', 'phone', 'dialCode', 'language', 'state', 'channel', 'source', 'pipeline', 'stage', 'host', 'agent', 'team']) {
     if (typeof details[key] !== 'string' || !details[key].trim() || details[key].length > 255) throw new Error(`A valid ${key} is required.`)
   }
@@ -87,6 +87,13 @@ export async function createSubmission(details, progress, request = biginRequest
   const channelValue = mapChoice(channel, details.channel)
   const sourceValue = mapChoice(source, details.source)
   const dealAgent = fieldByLabel(pipeline.fields, 'Agent Lead Management')
+  let agentValue
+  if (dealAgent?.data_type === 'userlookup') agentValue = { id: details.agent }
+  if (dealAgent?.data_type === 'picklist' && !progress.dealId) {
+    if (!agentName?.trim()) throw new Error('The selected booking agent needs a name before saving Agent Lead Management.')
+    try { agentValue = mapChoice(dealAgent, agentName) }
+    catch { throw new Error(`Add "${agentName}" to the Agent Lead Management dropdown in ${pipeline.name}, then retry.`) }
+  }
   const contactLanguage = fieldByLabel(metadata.contacts, 'Preferred Language')
   const languageValue = contactLanguage ? mapChoice(contactLanguage, details.language) : details.language
   const email = details.email.trim().toLowerCase()
@@ -115,7 +122,7 @@ export async function createSubmission(details, progress, request = biginRequest
       Pipeline: { id: pipeline.id, name: pipeline.name }, Sub_Pipeline: subPipeline, Stage: details.stage,
       [channel.api_name]: channelValue, [source.api_name]: sourceValue,
     }
-    if (dealAgent?.data_type === 'userlookup') deal[dealAgent.api_name] = { id: details.agent }
+    if (agentValue !== undefined) deal[dealAgent.api_name] = agentValue
     // Retain the booking agent even when no dedicated deal field exists.
     if (pipeline.fields.some(f => f.api_name === 'Description')) deal.Description = `Booked by Bigin user: ${details.agent}\nTeam: ${details.team}\n${details.notes}`
     progress.dealAttempted = true
