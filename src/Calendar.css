@@ -24,3 +24,13 @@
 .calendar-selection { padding: 18px; border: 1px solid #d5deea; border-radius: 12px; margin-top: 16px; background: white; }
 .calendar-selection h2 { font-size: 18px; }.calendar-selection p { font-size: 13px; }.calendar-selection button { float: right; cursor: pointer; }
 @media(max-width: 600px) { .team-calendar { padding: 16px; } }
+.event-dialog { border: 1px solid #d5deea; border-radius: 16px; padding: 0; width: min(540px, calc(100vw - 32px)); max-height: 85vh; color: #183049; box-shadow: 0 16px 60px #15283f30; }
+.event-dialog::backdrop { background: #142b4055; }
+.event-dialog article { padding: 24px; }
+.event-dialog h2 { font-size: 21px; margin: 0 70px 24px 0; overflow-wrap: anywhere; }
+.event-close { float: right; border: 1px solid #d5deea; border-radius: 6px; padding: 7px 10px; background: white; color: #183049; cursor: pointer; }
+.event-dialog dl { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 18px 16px; font-size: 13px; line-height: 1.65; }
+.event-dialog dt { color: #687589; }
+.event-dialog dd { margin: 0; overflow-wrap: anywhere; }
+.event-dialog ul { margin: 0; padding-left: 16px; }.event-dialog li + li { margin-top: 10px; }
+.event-dialog small { color: #687589; }.event-description { white-space: pre-wrap; }

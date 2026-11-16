@@ -20,7 +20,15 @@ export async function getCalendar(date, request = biginRequest) {
     const result = await request(`Events/search?${new URLSearchParams({ criteria, page: String(page), per_page: '200' })}`)
     for (const event of result.data || []) {
       if (unique.some(person => person.id === event.Owner?.id) && !event.$event_cancelled) {
-        events.push({ id: event.id, title: event.Event_Title, start: event.Start_DateTime, end: event.End_DateTime, ownerId: event.Owner.id, allDay: Boolean(event.All_day) })
+        events.push({
+          id: event.id, title: event.Event_Title, start: event.Start_DateTime, end: event.End_DateTime,
+          ownerId: event.Owner.id, allDay: Boolean(event.All_day),
+          location: event.Venue || '', description: event.Description || '',
+          relatedTo: event.Related_To?.name || '',
+          participants: (event.Participants || []).map(person => ({
+            name: person.name || '', email: person.Email || '', status: person.status || '',
+          })),
+        })
       }
     }
     if (!result.info?.more_records) break
