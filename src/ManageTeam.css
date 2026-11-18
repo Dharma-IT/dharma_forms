@@ -8,3 +8,6 @@
 .auth-logo { display: block; width: 86px; height: 86px; margin: 0 auto 22px; border-radius: 12px; }
 .team-page .team-primary, .team-tabs button[aria-pressed=true] { background: #003d2b; border-color: #003d2b; }
 @media (max-width: 600px) { .auth-brand span { display: none; }.auth-bar { padding: 10px 16px; gap: 10px; } }
+
+.booking-blocked { display: inline-block; font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fff0ec; color: #973c26; vertical-align: middle; }
+.team-member div { flex-wrap: wrap; }

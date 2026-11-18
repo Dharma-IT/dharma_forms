@@ -16,6 +16,7 @@ async function database() {
   pool ||= new Pool({ connectionString: process.env.DATABASE_URL })
   ready ||= (async () => {
     await pool.query('CREATE TABLE IF NOT EXISTS booking_team_members (team text NOT NULL, id text NOT NULL, name text NOT NULL, booking_url text NOT NULL, PRIMARY KEY(team,id))')
+    await pool.query('ALTER TABLE booking_team_members ADD COLUMN IF NOT EXISTS blocked boolean NOT NULL DEFAULT false')
     // A separate marker preserves intentionally empty teams after removals.
     await pool.query('CREATE TABLE IF NOT EXISTS booking_team_initialized (id integer PRIMARY KEY)')
     const client = await pool.connect()
@@ -33,14 +34,51 @@ async function database() {
 
 export async function getMembers() {
   if (process.env.SUPABASE_URL) {
-    const { data, error } = await supabaseAdmin().from('booking_team_members').select('team,id,name,booking_url').order('name')
+    const { data, error } = await supabaseAdmin().from('booking_team_members').select('*').order('name')
     if (error) throw new Error(`Could not load team settings. Run the Supabase setup SQL. (${error.code || 'database error'})`)
-    return data.map(row => ({ team: row.team, id: row.id, name: row.name, bookingUrl: row.booking_url }))
+    return data.map(row => ({ team: row.team, id: row.id, name: row.name, bookingUrl: row.booking_url, blocked: Boolean(row.blocked) }))
   }
   const db = await database()
-  if (db) return (await db.query('SELECT team,id,name,booking_url AS "bookingUrl" FROM booking_team_members ORDER BY name')).rows
+  if (db) return (await db.query('SELECT team,id,name,booking_url AS "bookingUrl",blocked FROM booking_team_members ORDER BY name')).rows
   try { return JSON.parse(await readFile(file, 'utf8')) }
   catch (error) { if (error.code !== 'ENOENT') throw error; return seed }
+}
+
+export function assertBookableMembers(members, details) {
+  if (!members.some(member => member.team === 'agents' && member.id === details.agent && !member.blocked) ||
+      !members.some(member => member.team === details.team && member.id === details.host && !member.blocked)) {
+    throw new Error('This team member is unavailable for booking. Refresh the form and select an available member.')
+  }
+}
+
+export async function setMemberBlocked(input) {
+  if (!teamIds.includes(input.team) || typeof input.id !== 'string' || !/^\d+$/.test(input.id) || typeof input.blocked !== 'boolean') throw new Error('Select a valid member and booking status.')
+  if (process.env.SUPABASE_URL) {
+    const { data, error } = await supabaseAdmin().from('booking_team_members').update({ blocked: input.blocked }).eq('team', input.team).eq('id', input.id).select('id')
+    if (error) throw new Error('Could not change booking status. Run the updated supabase/setup.sql, then retry.')
+    if (!data.length) throw new Error('Team member no longer exists. Refresh team settings.')
+  } else {
+    const db = await database()
+    if (db) {
+      const result = await db.query('UPDATE booking_team_members SET blocked=$1 WHERE team=$2 AND id=$3', [input.blocked, input.team, input.id])
+      if (!result.rowCount) throw new Error('Team member no longer exists. Refresh team settings.')
+    } else {
+      if (process.env.RENDER) throw new Error('Configure shared team storage before changing booking status.')
+      const task = queue.then(async () => {
+        const members = await getMembers()
+        const member = members.find(row => row.team === input.team && row.id === input.id)
+        if (!member) throw new Error('Team member no longer exists. Refresh team settings.')
+        member.blocked = input.blocked
+        await mkdir(directory, { recursive: true })
+        const temporary = new URL('members.tmp', directory)
+        await writeFile(temporary, JSON.stringify(members), { mode: 0o600 })
+        await rename(temporary, file)
+      })
+      queue = task.catch(() => {})
+      await task
+    }
+  }
+  return getMembers()
 }
 
 export async function getBiginUsers(request = biginRequest) {
@@ -93,7 +131,10 @@ export async function changeMember(input, remove = false) {
   } else {
     const task = queue.then(async () => {
       const members = (await getMembers()).filter(row => row.team !== member.team || row.id !== member.id)
-      if (!remove) members.push(member)
+      if (!remove) {
+        const existing = (await getMembers()).find(row => row.team === member.team && row.id === member.id)
+        members.push({ ...member, blocked: Boolean(existing?.blocked) })
+      }
       await mkdir(directory, { recursive: true })
       const temporary = new URL('members.tmp', directory)
       await writeFile(temporary, JSON.stringify(members), { mode: 0o600 })

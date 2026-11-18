@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { createSubmission, getFormMetadata } from './submissions.mjs'
 import { timingSafeEqual, createHash as hash } from 'node:crypto'
-import { getMembers, getBiginUsers, changeMember } from './teams.mjs'
+import { getMembers, getBiginUsers, changeMember, setMemberBlocked, assertBookableMembers } from './teams.mjs'
 import { authenticate, publicAuthConfig } from './supabase.mjs'
 import { getCalendar } from './calendar.mjs'
 
@@ -45,12 +45,13 @@ const server = createServer(async (req, res) => {
       if (!timingSafeEqual(provided, expected)) { failedPins++; return reply(401, { error: 'Incorrect PIN.' }) }
       if (req.method === 'GET' && req.url === '/api/manage-team') return reply(200, { members: await getMembers() })
       if (req.method === 'GET' && req.url === '/api/manage-team/users') return reply(200, { users: await getBiginUsers() })
-      if (['PUT', 'DELETE'].includes(req.method) && req.url === '/api/manage-team') {
+      if (['PUT', 'DELETE', 'PATCH'].includes(req.method) && req.url === '/api/manage-team') {
         if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
         if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
         let raw = ''
         for await (const chunk of req) { raw += chunk; if (raw.length > 8000) return reply(413, { error: 'Request too large' }) }
-        return reply(200, { members: await changeMember(JSON.parse(raw), req.method === 'DELETE') })
+        const input = JSON.parse(raw)
+        return reply(200, { members: req.method === 'PATCH' ? await setMemberBlocked(input) : await changeMember(input, req.method === 'DELETE') })
       }
       return reply(404, { error: 'Not found' })
     }
@@ -70,7 +71,7 @@ const server = createServer(async (req, res) => {
     // This booking form always creates deals at the evaluation scheduling stage.
     details.stage = 'Evaluation Scheduled'
     const members = await getMembers()
-    if (!members.some(member => member.team === 'agents' && member.id === details.agent) || !members.some(member => member.team === details.team && member.id === details.host)) return reply(400, { error: 'Select a current team member and booking agent. Refresh the form.' })
+    assertBookableMembers(members, details)
     const fingerprint = createHash('sha256').update(JSON.stringify(details)).digest('hex')
     const file = new URL(`${key}.json`, directory)
     pending.add(key)

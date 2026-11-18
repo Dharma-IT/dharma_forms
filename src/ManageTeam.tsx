@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import './ManageTeam.css'
 import { authenticatedFetch as fetch } from './auth'
 
-type Member = { team: string; id: string; name: string; bookingUrl: string }
+type Member = { team: string; id: string; name: string; bookingUrl: string; blocked?: boolean }
 type User = { id: string; name: string; email: string }
 const teams = [{ id: 'agents', name: 'Booking agents' }, { id: 'nutritionists', name: 'Nutritionists' }, { id: 'sellers', name: 'Sellers' }, { id: 'customer-service', name: 'Customer Service' }]
 
@@ -54,17 +54,26 @@ export default function ManageTeam() {
     catch (error) { setError(error instanceof Error ? error.message : 'Could not remove member.') }
     finally { setBusy(false) }
   }
+  async function toggleBlocked(member: Member) {
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const data = await api('', 'PATCH', { team: member.team, id: member.id, blocked: !member.blocked })
+      setMembers(data.members)
+      setNotice(`${member.name} is now ${member.blocked ? 'available for booking' : 'blocked from booking'} in this team.`)
+    } catch (error) { setError(error instanceof Error ? error.message : 'Could not change booking status.') }
+    finally { setBusy(false) }
+  }
   const current = members.filter(member => member.team === team)
   return <div className="team-page">
     <main className={`team-content ${unlocked ? '' : 'team-locked'}`} inert={!unlocked} aria-hidden={!unlocked}>
-      <header className="team-header"><div><span className="team-eyebrow">DHARMA NUTRITION CLINIC</span><h1>Manage team</h1><p>Keep your people and booking calendars up to date.</p></div><button onClick={() => { setUnlocked(false); setPin(''); setMembers([]); setUsers([]); setError(''); setNotice('') }}>Lock page</button></header>
+      <header className="team-header"><div><span className="team-eyebrow">DHARMA NUTRITION CLINIC</span><h1>Manage team</h1><p>Keep your people and booking calendars up to date. Blocking pauses new bookings through this form for that team; existing appointments and public booking pages stay available.</p></div><button onClick={() => { setUnlocked(false); setPin(''); setMembers([]); setUsers([]); setError(''); setNotice('') }}>Lock page</button></header>
       {unlocked && <>
         {error && <p role="alert" className="team-error">{error}</p>}
         {notice && <p role="status" className="team-notice">{notice}</p>}
         <div className="team-tabs" role="group" aria-label="Select team">{teams.map(item => <button key={item.id} aria-pressed={team === item.id} onClick={() => { setTeam(item.id); setUserId(''); setUrl(''); setNotice('') }}>{item.name}</button>)}</div>
         <div className="team-columns"><section className="team-card"><h2>{teams.find(item => item.id === team)?.name}</h2><p>{current.length} assigned {current.length === 1 ? 'member' : 'members'}</p>
           {!current.length && <p>No members yet. Add a verified Bigin user to get started.</p>}
-          {current.map(member => <article className="team-member" key={member.id}><h3>{member.name}</h3><p>{member.bookingUrl ? <a href={member.bookingUrl} target="_blank" rel="noreferrer">Open calendar ↗</a> : 'No calendar link'}</p><div><button disabled={busy} onClick={() => { setUserId(member.id); setUrl(member.bookingUrl); setSearch(''); setNotice('Editing member. Save below to apply changes.') }}>Edit</button><button disabled={busy} onClick={() => remove(member)}>Remove</button></div></article>)}
+          {current.map(member => <article className="team-member" key={member.id}><h3>{member.name} {member.blocked && <span className="booking-blocked">Blocked</span>}</h3><p>{member.bookingUrl ? <a href={member.bookingUrl} target="_blank" rel="noreferrer">Open calendar ↗</a> : 'No calendar link'}</p><div><button disabled={busy} onClick={() => toggleBlocked(member)}>{member.blocked ? 'Unblock' : 'Block'}</button><button disabled={busy} onClick={() => { setUserId(member.id); setUrl(member.bookingUrl); setSearch(''); setNotice('Editing member. Save below to apply changes.') }}>Edit</button><button disabled={busy} onClick={() => remove(member)}>Remove</button></div></article>)}
         </section><section className="team-card"><h2>Add or update a member</h2><p>Only active, confirmed accounts found in Bigin can be added. This does not create or change a Bigin account.</p>
           <form onSubmit={save}><fieldset disabled={busy}>
             <label>Find a Bigin user<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or email" /></label>

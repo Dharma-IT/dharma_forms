@@ -33,7 +33,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   </>
 }
 function App() {
-  const [members, setMembers] = useState<{ team: string; id: string; name: string; bookingUrl: string }[]>([])
+  const [members, setMembers] = useState<{ team: string; id: string; name: string; bookingUrl: string; blocked?: boolean }[]>([])
   const [details, setDetails] = useState<Details>(initial)
   const [step, setStep] = useState(1)
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
@@ -47,7 +47,7 @@ function App() {
     fetch('/api/teams', { signal: controller.signal }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not load team members.')
-      setMembers(data.members)
+      setMembers(data.members.filter((member: { blocked?: boolean }) => !member.blocked))
     }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
     fetch('/api/bigin/options', { signal: controller.signal }).then(async response => {
       const data = await response.json()

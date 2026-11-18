@@ -1,7 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateMember, getBiginUsers } from './teams.mjs'
+import { validateMember, getBiginUsers, assertBookableMembers } from './teams.mjs'
 const users = [{ id: '123', name: 'Verified User', email: 'user@example.com' }]
+
+test('booking rejects blocked hosts and agents, including stale selections, without blocking their other teams', () => {
+  const details = { agent: '1', host: '2', team: 'sellers' }
+  const members = [{ team: 'agents', id: '1' }, { team: 'sellers', id: '2', blocked: true }, { team: 'nutritionists', id: '2' }]
+  assert.throws(() => assertBookableMembers(members, details), /unavailable for booking/)
+  assert.doesNotThrow(() => assertBookableMembers(members, { ...details, team: 'nutritionists' }))
+  assert.throws(() => assertBookableMembers([{ ...members[0], blocked: true }, members[2]], { ...details, team: 'nutritionists' }), /unavailable for booking/)
+  assert.throws(() => assertBookableMembers([], details), /unavailable for booking/)
+})
 test('members use identity from Bigin, never client-supplied names', () => {
   assert.deepEqual(validateMember({ team: 'sellers', id: '123', name: 'Imposter', bookingUrl: 'https://calendar.example/book' }, users), { team: 'sellers', id: '123', name: 'Verified User', bookingUrl: 'https://calendar.example/book' })
 })

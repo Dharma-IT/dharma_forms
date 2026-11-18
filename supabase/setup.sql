@@ -10,6 +10,7 @@ create table if not exists public.booking_team_members (
 create table if not exists public.booking_team_initialized (
   id integer primary key check (id = 1)
 );
+alter table public.booking_team_members add column if not exists blocked boolean not null default false;
 
 -- Browser clients cannot bypass the server's Bigin validation or management PIN.
 alter table public.booking_team_members enable row level security;
