@@ -4,14 +4,14 @@ assert.deepEqual(parseCsv('\uFEFFName,Note\r\n"Doe, Jane","two\nlines"\r\n'), [[
 assert.deepEqual(parseCsv('Name;Phone\nJane;123'), [['Name','Phone'],['Jane','123']])
 assert.throws(() => parseCsv('Name,Phone\n"Jane,123'))
 assert.throws(() => parseCsv('Name,Phone\nJane,123,extra'))
-const source = ['NEW SALE - Jane 123','Virtual','','+1 (347) 500-8081','','','MEDICALLY APPROVED (WON)','','','100','','','']
+const source = ['NEW SALE - Jane 123','Virtual','','+1 (347) 500-8081','','','MEDICALLY APPROVED (WON)','','Alex Rivera','100','','','']
 const map = columns.map((_,i) => i)
 const cleaned = cleanRow(source,map,true)
 assert.equal(cleaned.row[0],'Jane')
 assert.equal(cleaned.row[3],'13475008081')
 assert.equal(cleaned.row[10],'13475008081@dummy.com')
 assert.equal(cleaned.row[6],'Closed Won')
-assert.equal(cleaned.row[8],'Jeuz Vinci')
+assert.equal(cleaned.row[8],'Alex Rivera')
 assert.equal(cleaned.row[11],'2020-01-01')
 assert.equal(cleaned.row[12],'WLI')
 assert.deepEqual(cleaned.issues,[])
@@ -21,10 +21,49 @@ source[11]='2026-02-30'
 assert.equal(cleanRow(source,map,true).issues.length,1)
 source[11]='2026-11-18T10:30:00Z'
 assert.equal(cleanRow(source,map,false).row[11],'2026-11-18')
-assert.equal(cleanRow(source,map,false).row[8],'')
+assert.equal(cleanRow(source,map,false).row[8],'Alex Rivera')
 assert.ok(csv([['=HYPERLINK("bad")']]).includes("'="))
 console.log('Migration parsing and cleaning checks passed.')
 assert.equal(cleanRow(['Sellers - Jane Doe',...source.slice(1)],map,true).row[0], 'Sellers - Jane Doe')
 assert.equal(cleanRow(['CS - Jane Doe',...source.slice(1)],map,true).row[0], 'CS - Jane Doe')
 assert.equal(cleanRow(['Nutritionist - Jane Doe',...source.slice(1)],map,true).row[0], 'Nutri - Jane Doe')
 assert.equal(cleanRow(['CS - 123',...source.slice(1)],map,true).row[0], '')
+
+source[8] = ''
+assert.equal(cleanRow(source,map,true).row[8], 'ca@dharmanutritionclinic.com')
+assert.ok(!cleanRow(source,map,true).issues.some(issue => issue.includes('Missing deal owner')))
+assert.equal(cleanRow(source,map,false).row[8], 'ca@dharmanutritionclinic.com')
+source[8] = '123456'
+assert.ok(cleanRow(source,map,true).issues.some(issue => issue.includes('owner ID')))
+source[8] = 'alex@example.com'
+assert.equal(cleanRow(source,map,true).row[8], 'alex@example.com')
+
+
+source[6] = 'PAID'
+source[11] = '2026-11-18'
+source[15] = 'call'
+source[16] = 'Facebook'
+source[18] = 'Zelle'
+source[19] = 'Yes'
+const verified = cleanRow(source,map,false,'New Leads')
+assert.equal(verified.row[11], '2026-11-18')
+assert.equal(verified.row[13], 'Jane')
+assert.equal(verified.row[15], 'Call')
+assert.equal(verified.row[19], 'true')
+assert.equal(verified.row[20], 'New Leads')
+assert.equal(verified.row[21], 'New Leads')
+assert.equal(verified.issues.length, 0)
+source[18] = 'Unknown payment'
+assert.ok(cleanRow(source,map,false,'Customer Service').issues.some(issue => issue.includes('Payment Method')))
+assert.equal(cleanRow(source,map,false,'Customer Service').row[21], 'Customer Service')
+assert.equal(columns[11], 'Paid Date')
+assert.equal(columns[5], 'Lead Cassification')
+
+const { canonicalPerson } = await import('./src/migration.ts')
+for (const name of ['Aline Strelow','Alice Strelow','Alice F','alice f.']) assert.equal(canonicalPerson(name),'Alice Strelow')
+assert.equal(canonicalPerson('Alice Smith'),'Alice Smith')
+source[4]='Alice F'
+assert.equal(cleanRow(source,map,false,'New Leads').row[4],'Aline Strelow')
+
+for (const name of ['Maria Sandoval','Ana Sandoval',' MARIA SANDOVAL ']) assert.equal(canonicalPerson(name),'Ana Sandoval')
+assert.equal(canonicalPerson('Maria Sanchez'),'Maria Sanchez')

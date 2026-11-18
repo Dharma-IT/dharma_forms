@@ -1,0 +1,668 @@
+[
+  {
+    "name": "Customer Service",
+    "subPipeline": "Customer Service",
+    "stages": [
+      "New Leads",
+      "LOST",
+      "Future Contact",
+      "Refund",
+      "Dispute Won",
+      "Waiting for Payment",
+      "Evaluation Scheduled",
+      "PAID",
+      "Closed Won",
+      "Closed Lost"
+    ],
+    "fields": [
+      {
+        "label": "Deal Owner",
+        "api": "Owner",
+        "type": "ownerlookup",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Deal Name",
+        "api": "Deal_Name",
+        "type": "text",
+        "required": true,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Contact Name",
+        "api": "Contact_Name",
+        "type": "lookup",
+        "required": true,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Closing Date",
+        "api": "Closing_Date",
+        "type": "date",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Sub Pipeline",
+        "api": "Sub_Pipeline",
+        "type": "picklist",
+        "required": true,
+        "readOnly": false,
+        "options": [
+          "Customer Service"
+        ]
+      },
+      {
+        "label": "Stage",
+        "api": "Stage",
+        "type": "picklist",
+        "required": true,
+        "readOnly": false,
+        "options": [
+          "New Leads",
+          "Evaluation Scheduled",
+          "PAID",
+          "LOST",
+          "Future Contact",
+          "Refund",
+          "Dispute Won",
+          "Waiting for Payment",
+          "Closed Won",
+          "Closed Lost"
+        ]
+      },
+      {
+        "label": "Tag",
+        "api": "Tag",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Phone Number",
+        "api": "Phone_Number",
+        "type": "phone",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Amount",
+        "api": "Amount",
+        "type": "currency",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Evaluation date and hour",
+        "api": "Evaluation_date_and_hour",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Lead Cassification",
+        "api": "Lead_Cassification",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Product",
+        "api": "Product",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Paid Date",
+        "api": "Paid_Date",
+        "type": "date",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Meeting type",
+        "api": "Meeting_type",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Created Time",
+        "api": "Created_Time",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Modified Time",
+        "api": "Modified_Time",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Last Activity Time",
+        "api": "Last_Activity_Time",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Pipeline",
+        "api": "Pipeline",
+        "type": "bigint",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Agent Lead Management",
+        "api": "Agent_Lead_Management",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Laura Garcia",
+          "Kathering Silva",
+          "Edgar Morales",
+          "Jean Lopez",
+          "Laura Sanchez",
+          "Edwin Toro",
+          "Edmilson Morales",
+          "Arles Martinez",
+          "Aline Strelow",
+          "Brayam Zuluaga",
+          "Meribet Sampson",
+          "Leonardo Goncales",
+          "Maria Juarez",
+          "Erick Roque",
+          "Natalia Fernandez",
+          "Andres Tovar",
+          "William Carcamo",
+          "Nikolas Castellanos",
+          "Andres Parra",
+          "Marian Manuel",
+          "Denis Reis",
+          "Alejandro Jose Yasno Estrada",
+          "Jonathan Franco Pirone Vivas",
+          "Alfredo Eusse Alvarez",
+          "Robert Bedoya",
+          "Juan Medina",
+          "Boris Capuro",
+          "Francheska Abanes",
+          "Nicole Rincon",
+          "Valesca Garcia",
+          "Alvaro Cueter",
+          "Kevin Tinjaca",
+          "David Alejandro",
+          "Ailene Nuevas",
+          "Maria Roa",
+          "Jhonatan Valiente",
+          "Hasiel Nohemi",
+          "Natasha Lopez",
+          "Maria Vicenta Roa",
+          "Juana Lorena",
+          "Adonis Robelo",
+          "Jesus Rodrigo",
+          "Cesar Sierra",
+          "Lucia Margarita",
+          "Maria Claudia",
+          "Maria Luisa",
+          "Nicolas Murcia",
+          "Diana Stephanie",
+          "Juan Camilo",
+          "Miguel Stiven",
+          "Salomon Eduardo",
+          "Yonatan Ariel",
+          "Maria Gomez",
+          "Alejandro Rivera",
+          "Daniela Quintero",
+          "Erika Vargas",
+          "Andres Castro",
+          "Diana Villalobos",
+          "Mardia Sugey",
+          "Pedro Jeronimo",
+          "Zara Meza",
+          "Belizabett Gonzalez",
+          "Ailin Isabel",
+          "Ivan Baez",
+          "Alejandra Oyala",
+          "Laura Camilia",
+          "Elsy Espinosa",
+          "Carlos Vargas",
+          "Yaneth Rodriguez",
+          "Helen Gutierrez",
+          "Leonardo Lozano",
+          "Jeuz Vinci Bas"
+        ]
+      },
+      {
+        "label": "Record Creation Source ID",
+        "api": "Record_Creation_Source_ID__s",
+        "type": "bigint",
+        "required": false,
+        "readOnly": true,
+        "options": []
+      },
+      {
+        "label": "Channel",
+        "api": "Channel",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Call",
+          "Message"
+        ]
+      },
+      {
+        "label": "Source",
+        "api": "Source",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Facebook",
+          "Tiktok",
+          "Organic"
+        ]
+      },
+      {
+        "label": "Payment Notes",
+        "api": "Payment_Notes",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Payment Method",
+        "api": "Payment_Method",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Debit/Credit",
+          "Klarna",
+          "Zelle"
+        ]
+      },
+      {
+        "label": "Installment",
+        "api": "Installment",
+        "type": "boolean",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Total Payable",
+        "api": "Total_Payable",
+        "type": "formula",
+        "required": false,
+        "readOnly": true,
+        "options": []
+      },
+      {
+        "label": "Associated Products",
+        "api": "Associated_Products",
+        "type": "subform",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      }
+    ]
+  },
+  {
+    "name": "New Leads",
+    "subPipeline": "New Leads",
+    "stages": [
+      "New Leads",
+      "LOST",
+      "Future Contact",
+      "Waiting for Payment",
+      "Refund",
+      "Dispute Won",
+      "Evaluation Scheduled",
+      "PAID",
+      "Closed Won",
+      "Closed Lost"
+    ],
+    "fields": [
+      {
+        "label": "Deal Owner",
+        "api": "Owner",
+        "type": "ownerlookup",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Deal Name",
+        "api": "Deal_Name",
+        "type": "text",
+        "required": true,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Contact Name",
+        "api": "Contact_Name",
+        "type": "lookup",
+        "required": true,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Closing Date",
+        "api": "Closing_Date",
+        "type": "date",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Sub Pipeline",
+        "api": "Sub_Pipeline",
+        "type": "picklist",
+        "required": true,
+        "readOnly": false,
+        "options": [
+          "New Leads"
+        ]
+      },
+      {
+        "label": "Stage",
+        "api": "Stage",
+        "type": "picklist",
+        "required": true,
+        "readOnly": false,
+        "options": [
+          "Qualification",
+          "Needs Analysis",
+          "Proposal/Price Quote",
+          "Negotiation/Review",
+          "New Leads",
+          "Evaluation Scheduled",
+          "PAID",
+          "LOST",
+          "Future Contact",
+          "Waiting for Payment",
+          "Refund",
+          "Dispute Won",
+          "Closed Won",
+          "Closed Lost"
+        ]
+      },
+      {
+        "label": "Phone Number",
+        "api": "Phone_Number",
+        "type": "phone",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Amount",
+        "api": "Amount",
+        "type": "currency",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Evaluation date and hour",
+        "api": "Evaluation_date_and_hour",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Lead Cassification",
+        "api": "Lead_Cassification",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Product",
+        "api": "Product",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Paid Date",
+        "api": "Paid_Date",
+        "type": "date",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Meeting type",
+        "api": "Meeting_type",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Tag",
+        "api": "Tag",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Last Activity Time",
+        "api": "Last_Activity_Time",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Created Time",
+        "api": "Created_Time",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Modified Time",
+        "api": "Modified_Time",
+        "type": "datetime",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Agent Lead Management",
+        "api": "Agent_Lead_Management",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Laura Garcia",
+          "Kathering Silva",
+          "Edgar Morales",
+          "Jean Lopez",
+          "Laura Sanchez",
+          "Edwin Toro",
+          "Edmilson Morales",
+          "Arles Martinez",
+          "Aline Strelow",
+          "Brayam Zuluaga",
+          "Meribet Sampson",
+          "Leonardo Goncales",
+          "Maria Juarez",
+          "Erick Roque",
+          "Natalia Fernandez",
+          "Andres Tovar",
+          "William Carcamo",
+          "Nikolas Castellanos",
+          "Andres Parra",
+          "Marian Manuel",
+          "Denis Reis",
+          "Alejandro Jose Yasno Estrada",
+          "Jonathan Franco Pirone Vivas",
+          "Alfredo Eusse Alvarez",
+          "Robert Bedoya",
+          "Juan Medina",
+          "Boris Capuro",
+          "Francheska Abanes",
+          "Nicole Rincon",
+          "Valesca Garcia",
+          "Alvaro Cueter",
+          "Kevin Tinjaca",
+          "David Alejandro",
+          "Ailene Nuevas",
+          "Maria Roa",
+          "Jhonatan Valiente",
+          "Hasiel Nohemi",
+          "Natasha Lopez",
+          "Maria Vicenta Roa",
+          "Juana Lorena",
+          "Adonis Robelo",
+          "Jesus Rodrigo",
+          "Cesar Sierra",
+          "Lucia Margarita",
+          "Maria Claudia",
+          "Maria Luisa",
+          "Nicolas Murcia",
+          "Diana Stephanie",
+          "Juan Camilo",
+          "Miguel Stiven",
+          "Salomon Eduardo",
+          "Yonatan Ariel",
+          "Maria Gomez",
+          "Alejandro Rivera",
+          "Daniela Quintero",
+          "Erika Vargas",
+          "Andres Castro",
+          "Diana Villalobos",
+          "Mardia Sugey",
+          "Pedro Jeronimo",
+          "Zara Meza",
+          "Belizabett Gonzalez",
+          "Ailin Isabel",
+          "Ivan Baez",
+          "Alejandra Oyala",
+          "Laura Camilia",
+          "Elsy Espinosa",
+          "Carlos Vargas",
+          "Yaneth Rodriguez",
+          "Helen Gutierrez",
+          "Leonardo Lozano",
+          "Jeuz Vinci Bas"
+        ]
+      },
+      {
+        "label": "Record Creation Source ID",
+        "api": "Record_Creation_Source_ID__s",
+        "type": "bigint",
+        "required": false,
+        "readOnly": true,
+        "options": []
+      },
+      {
+        "label": "Pipeline",
+        "api": "Pipeline",
+        "type": "bigint",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Channel",
+        "api": "Channel",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Call",
+          "Message"
+        ]
+      },
+      {
+        "label": "Source",
+        "api": "Source",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Facebook",
+          "Tiktok",
+          "Organic"
+        ]
+      },
+      {
+        "label": "Payment Notes",
+        "api": "Payment_Notes",
+        "type": "text",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Payment Method",
+        "api": "Payment_Method",
+        "type": "picklist",
+        "required": false,
+        "readOnly": false,
+        "options": [
+          "Debit/Credit",
+          "Klarna",
+          "Zelle"
+        ]
+      },
+      {
+        "label": "Installment",
+        "api": "Installment",
+        "type": "boolean",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      },
+      {
+        "label": "Total Payable",
+        "api": "Total_Payable",
+        "type": "formula",
+        "required": false,
+        "readOnly": true,
+        "options": []
+      },
+      {
+        "label": "Associated Products",
+        "api": "Associated_Products",
+        "type": "subform",
+        "required": false,
+        "readOnly": false,
+        "options": []
+      }
+    ]
+  }
+]

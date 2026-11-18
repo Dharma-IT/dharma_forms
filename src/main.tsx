@@ -9,7 +9,9 @@ import Migration from './Migration.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthGate>{window.location.pathname.replace(/\/$/, '') === '/migration' ? <Migration /> : window.location.pathname.replace(/\/$/, '') === '/calendar' ? <Calendar /> : window.location.pathname.replace(/\/$/, '') === '/manage-team' ? <ManageTeam /> : <App />}</AuthGate>
+    {window.location.pathname.replace(/\/$/, '') === '/migration'
+      ? <Migration />
+      : <AuthGate>{window.location.pathname.replace(/\/$/, '') === '/calendar' ? <Calendar /> : window.location.pathname.replace(/\/$/, '') === '/manage-team' ? <ManageTeam /> : <App />}</AuthGate>}
   </StrictMode>,
 )
 

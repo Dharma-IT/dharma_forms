@@ -1,4 +1,4 @@
-# React + TypeScript + Vite
+﻿# React + TypeScript + Vite
 
 ## Booking form preview
 
@@ -146,7 +146,7 @@ free Render filesystem does not preserve receipts reliably.
 Open `/manage-team` directly. It has no link on the booking form and no dashboard.
 A blurred placeholder and PIN modal appear until the server accepts the PIN.
 Set the required server-only `MANAGE_TEAM_PIN` environment variable. There is no default; management is unavailable if it is missing or invalid.
-(4–12 digits). The PIN is held only in component memory and cleared on lock or
+(4â€“12 digits). The PIN is held only in component memory and cleared on lock or
 refresh. Ten incorrect attempts temporarily block management requests for one
 minute. The booking form necessarily exposes assigned members and their public
 calendar links through `/api/teams`; the Bigin directory and management writes
@@ -214,3 +214,30 @@ recovery is currently handled by your administrator, not an in-app flow.
 Team assignments persist in Supabase. Existing local team settings are not
 migrated automatically; the SQL seeds the initial assignment once. Existing
 submission idempotency receipts remain filesystem-based and are not migrated.
+
+## Local HubSpot migration
+
+Run `node --env-file=.env --experimental-strip-types scripts/migrate-hubspot-local.mts`.
+The command reads the server-only HubSpot token from `.env`, reads HubSpot deals,
+owners, and linked contacts, and checks Bigin layouts and active users. It does
+not write to either CRM. Keep the token out of browser configuration.
+
+Local source caches and CSVs are stored under ignored `.migration-local/`.
+`exports/summary.json` reconciles ready and review counts. Import-ready CSVs
+contain at most 10,000 deals each; `review.csv` contains excluded deals and
+reasons; `audit.csv` preserves deal IDs, original owner IDs, contact IDs, and
+original paid dates. Existing owners need a unique active Bigin match; only
+unassigned deals default to Carolina. Contact names still need linking to the
+correct Bigin contacts at import. Missing paid/closing dates use the existing
+reference placeholder `2020-01-01` and are counted in the summary.
+
+Reruns resume the cached source snapshot. To fetch a fresh snapshot, rename
+`.migration-local` before running again. Do not import review.csv or audit.csv
+as deal files. Search reads are partitioned below HubSpot's 10,000 result cap.
+
+Open http://localhost:5173/migration with the Vite dev server running to download
+files from the New Leads and Customer Service tabs. Migration has no sign-in
+requirement and uses the local API export rather than a manual CSV upload.
+Review and audit files are also split per pipeline. Local download endpoints
+are available only in development and accept loopback connections only.
+

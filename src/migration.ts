@@ -1,6 +1,11 @@
-﻿export const columns = ['Deal Name', 'Meeting Type', 'Evaluation date and hour', 'Phone Number', 'Agent Lead Management', 'Lead Classification', 'Deal Stage', 'Close Date', 'Deal owner', 'Amount', 'Email', 'Paid date (all pipelines)', 'Product']
+﻿import schema from './migration-schema.json' with { type: 'json' }
+export const columns = ['Deal Name', 'Meeting type', 'Evaluation date and hour', 'Phone Number', 'Agent Lead Management', 'Lead Cassification', 'Stage', 'Closing Date', 'Deal Owner', 'Amount', 'Email', 'Paid Date', 'Product', 'Contact Name', 'Tag', 'Channel', 'Source', 'Payment Notes', 'Payment Method', 'Installment', 'Pipeline', 'Sub Pipeline']
 export const aliases = [ ['dealname','deal name'], ['meeting_type','meeting type'], ['evaluation_date_and_hour_2','evaluation date and hour'], ['phone','phone number','mobile phone number','mobilephone'], ['agent_lead_management','agent lead management'], ['classification','lead classification'], ['dealstage','deal stage'], ['closedate','close date'], ['hubspot_owner_id','deal owner','deal ownership'], ['amount'], ['email'], ['paid_date_all_pipelines','paid date (all pipelines)','paid date'], ['product'] ]
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+export function canonicalPerson(value: string) {
+  if (['mariasandoval', 'anasandoval'].includes(normalize(value))) return 'Ana Sandoval'
+  return ['alinestrelow', 'alicestrelow', 'alicef'].includes(normalize(value)) ? 'Alice Strelow' : value.trim()
+}
 export function guess(headers: string[], names: string[]) { return headers.findIndex(header => names.some(name => normalize(header) === normalize(name))) }
 export function parseCsv(text: string): string[][] {
   text = text.replace(/^\uFEFF/, '')
@@ -26,7 +31,11 @@ export function parseCsv(text: string): string[][] {
   return rows
 }
 const stages: Record<string,string> = { 'NEW LEAD':'New Leads','NEW LEADS':'New Leads','NEW CLIENT':'New Leads','PROBLEM':'LOST','PAID':'PAID','LOST':'LOST','EVALUATION SCHEDULED':'Evaluation Scheduled','FUTURE CONTACT':'Future Contact','WAITING FOR PAYMENT':'Waiting for Payment','WAITING FOT PAYMENT':'Waiting for Payment','REFUND':'Refund','DISPUTE WON':'Dispute Won','MEDICALLY APPROVED (WON)':'Closed Won','CLOSED WON':'Closed Won' }
-export function cleanRow(source: string[], mapping: number[], placeholders: boolean) {
+aliases[5].push('Lead Cassification')
+aliases[6].push('Stage')
+aliases[7].push('Closing Date')
+aliases.push(['contact name'], ['tag', 'tags'], ['channel', 'chanel'], ['source', 'lead source'], ['payment notes', 'payment_notes'], ['payment method', 'payment_method'], ['installment'], [], [])
+export function cleanRow(source: string[], mapping: number[], placeholders: boolean, pipeline?: string) {
   const row = columns.map((_, i) => (source[mapping[i]] ?? '').trim())
   const prefix = row[0].match(/^\s*(sellers?|cs|customer\s+service|nutri|nutritionists?)\s*[-–—:]\s*/i)
   const team = prefix ? (/^sell/i.test(prefix[1]) ? 'Sellers' : /^(cs|customer)/i.test(prefix[1]) ? 'CS' : 'Nutri') : ''
@@ -44,9 +53,36 @@ export function cleanRow(source: string[], mapping: number[], placeholders: bool
       else issues.push(`Unrecognized ${columns[index]}: ${row[index]} (use YYYY-MM-DD)`)
     }
   }
-  if (!row[8] && placeholders) row[8] = 'Jeuz Vinci'
+  if (!row[8]) row[8] = 'ca@dharmanutritionclinic.com'
+  else if (/^\d+$/.test(row[8])) issues.push('HubSpot owner ID needs mapping to a Bigin owner name or email')
   row[10] = row[3] ? `${row[3]}@dummy.com` : ''
-  row[12] = 'WLI'
+  row[12] ||= 'WLI'
+  row[13] ||= clientName
+  const layout = schema.find(item => item.name === pipeline)
+  if (row[4] && ['Alice Strelow', 'Ana Sandoval'].includes(canonicalPerson(row[4]))) {
+    row[4] = layout?.fields.find(f => f.api === 'Agent_Lead_Management')?.options.find(value => canonicalPerson(value) === canonicalPerson(row[4])) ?? row[4]
+  }
+  if (layout) {
+    row[20] = layout.name
+    row[21] = layout.subPipeline
+    if (!layout.stages.includes(row[6])) issues.push(`Stage is not available in ${pipeline}: ${row[6] || '(blank)'}`)
+    for (const index of [4,15,16,18]) {
+      const field = layout.fields.find(f => f.label === columns[index])
+      if (row[index] && field?.options.length) {
+        const match = field.options.find(value => value.toLowerCase() === row[index].toLowerCase())
+        if (match) row[index] = match
+        else issues.push(`${columns[index]} is not an available Bigin option: ${row[index]}`)
+      }
+    }
+  }
+  if (row[19]) {
+    const value = row[19].toLowerCase()
+    if (['true','yes','1'].includes(value)) row[19] = 'true'
+    else if (['false','no','0'].includes(value)) row[19] = 'false'
+    else issues.push('Installment must be yes/no or true/false')
+  }
+  if (row[9] && !/^-?\d+(?:\.\d+)?$/.test(row[9])) issues.push('Amount must be a number without currency symbols or separators')
+  if (row[2] && (!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/.test(row[2]) || Number.isNaN(Date.parse(row[2])))) issues.push('Evaluation date and hour must be an ISO date/time')
   if (!row[0]) issues.push('Missing usable deal name')
   if (!row[3]) issues.push('Missing phone')
   return { row, issues }
@@ -54,4 +90,8 @@ export function cleanRow(source: string[], mapping: number[], placeholders: bool
 export function csv(rows: string[][]) {
   return '\uFEFF' + rows.map(row => row.map(value => `"${(/^[\s]*[=+@-]/.test(value) ? "'" : '') + value.replace(/"/g,'""')}"`).join(',')).join('\r\n')
 }
+
+
+
+
 
