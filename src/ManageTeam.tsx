@@ -42,7 +42,7 @@ export default function ManageTeam() {
   async function save(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('')
     try {
-      const data = await api('', 'PUT', { team, id: userId, bookingUrl: url })
+      const data = await api('', 'PUT', { team, id: userId, bookingUrl: team === 'agents' ? '' : url })
       setMembers(data.members); setUserId(''); setUrl(''); setNotice('Team member saved. The booking form will use these settings when opened or refreshed.')
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save member.') }
     finally { setBusy(false) }
@@ -73,12 +73,12 @@ export default function ManageTeam() {
         <div className="team-tabs" role="group" aria-label="Select team">{teams.map(item => <button key={item.id} aria-pressed={team === item.id} onClick={() => { setTeam(item.id); setUserId(''); setUrl(''); setNotice('') }}>{item.name}</button>)}</div>
         <div className="team-columns"><section className="team-card"><h2>{teams.find(item => item.id === team)?.name}</h2><p>{current.length} assigned {current.length === 1 ? 'member' : 'members'}</p>
           {!current.length && <p>No members yet. Add a verified Bigin user to get started.</p>}
-          {current.map(member => <article className="team-member" key={member.id}><h3>{member.name} {member.blocked && <span className="booking-blocked">Blocked</span>}</h3><p>{member.bookingUrl ? <a href={member.bookingUrl} target="_blank" rel="noreferrer">Open calendar ↗</a> : 'No calendar link'}</p><div><button disabled={busy} onClick={() => toggleBlocked(member)}>{member.blocked ? 'Unblock' : 'Block'}</button><button disabled={busy} onClick={() => { setUserId(member.id); setUrl(member.bookingUrl); setSearch(''); setNotice('Editing member. Save below to apply changes.') }}>Edit</button><button disabled={busy} onClick={() => remove(member)}>Remove</button></div></article>)}
+          {current.map(member => <article className="team-member" key={member.id}><h3>{member.name} {member.blocked && <span className="booking-blocked">Blocked</span>}</h3>{team !== 'agents' && <p>{member.bookingUrl ? <a href={member.bookingUrl} target="_blank" rel="noreferrer">Open calendar ↗</a> : 'No calendar link'}</p>}<div><button disabled={busy} onClick={() => toggleBlocked(member)}>{member.blocked ? 'Unblock' : 'Block'}</button><button disabled={busy} onClick={() => { setUserId(member.id); setUrl(member.bookingUrl); setSearch(''); setNotice('Editing member. Save below to apply changes.') }}>Edit</button><button disabled={busy} onClick={() => remove(member)}>Remove</button></div></article>)}
         </section><section className="team-card"><h2>Add or update a member</h2><p>Only active, confirmed accounts found in Bigin can be added. This does not create or change a Bigin account.</p>
           <form onSubmit={save}><fieldset disabled={busy}>
             <label>Find a Bigin user<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or email" /></label>
             <label>Bigin account<select required value={userId} onChange={e => { setUserId(e.target.value); setUrl(current.find(member => member.id === e.target.value)?.bookingUrl || '') }}><option value="">Select a verified account</option>{users.filter(user => user.id === userId || `${user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase())).map(user => <option key={user.id} value={user.id}>{user.name} — {user.email}</option>)}</select></label>
-            <label>Calendar link {team === 'agents' ? '(optional)' : ''}<input type="url" required={team !== 'agents'} value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></label><small>Use a public HTTPS booking page that allows embedding. Some calendar providers may block embedding.</small>
+            {team !== 'agents' && <><label>Calendar link<input type="url" required value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></label><small>Use a public HTTPS booking page that allows embedding. Some calendar providers may block embedding.</small></>}
             <button className="team-primary" type="submit" disabled={!users.length}>{busy ? 'Saving…' : 'Save member'}</button>
           </fieldset></form>
           <button disabled={busy} onClick={async () => { setBusy(true); setError(''); try { await loadUsers(); setNotice('Bigin user list refreshed.') } catch (error) { setError(error instanceof Error ? error.message : 'Could not load users.') } finally { setBusy(false) } }}>Refresh Bigin users</button>
