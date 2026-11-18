@@ -1,4 +1,4 @@
-﻿# React + TypeScript + Vite
+# React + TypeScript + Vite
 
 ## Booking form preview
 
@@ -226,8 +226,8 @@ Local source caches and CSVs are stored under ignored `.migration-local/`.
 `exports/summary.json` reconciles ready and review counts. Import-ready CSVs
 contain at most 10,000 deals each; `review.csv` contains excluded deals and
 reasons; `audit.csv` preserves deal IDs, original owner IDs, contact IDs, and
-original paid dates. Existing owners need a unique active Bigin match; only
-unassigned deals default to Carolina. Contact names still need linking to the
+original paid dates. Matched existing owners are preserved; unmatched and unassigned owners
+default to Carolina. Original owner details are retained in the audit files. Contact names still need linking to the
 correct Bigin contacts at import. Missing paid/closing dates use the existing
 reference placeholder `2020-01-01` and are counted in the summary.
 

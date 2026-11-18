@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict'
+import assert from 'node:assert/strict'
 import { parseCsv, cleanRow, csv, columns } from './src/migration.ts'
 assert.deepEqual(parseCsv('\uFEFFName,Note\r\n"Doe, Jane","two\nlines"\r\n'), [['Name','Note'],['Doe, Jane','two\nlines']])
 assert.deepEqual(parseCsv('Name;Phone\nJane;123'), [['Name','Phone'],['Jane','123']])
@@ -7,7 +7,7 @@ assert.throws(() => parseCsv('Name,Phone\nJane,123,extra'))
 const source = ['NEW SALE - Jane 123','Virtual','','+1 (347) 500-8081','','','MEDICALLY APPROVED (WON)','','Alex Rivera','100','','','']
 const map = columns.map((_,i) => i)
 const cleaned = cleanRow(source,map,true)
-assert.equal(cleaned.row[0],'Jane')
+assert.equal(cleaned.row[0],'Sellers - Jane')
 assert.equal(cleaned.row[3],'13475008081')
 assert.equal(cleaned.row[10],'13475008081@dummy.com')
 assert.equal(cleaned.row[6],'Closed Won')
@@ -27,7 +27,7 @@ console.log('Migration parsing and cleaning checks passed.')
 assert.equal(cleanRow(['Sellers - Jane Doe',...source.slice(1)],map,true).row[0], 'Sellers - Jane Doe')
 assert.equal(cleanRow(['CS - Jane Doe',...source.slice(1)],map,true).row[0], 'CS - Jane Doe')
 assert.equal(cleanRow(['Nutritionist - Jane Doe',...source.slice(1)],map,true).row[0], 'Nutri - Jane Doe')
-assert.equal(cleanRow(['CS - 123',...source.slice(1)],map,true).row[0], '')
+assert.equal(cleanRow(['CS - 123',...source.slice(1)],map,true).row[0], 'Client - 13475008081')
 
 source[8] = ''
 assert.equal(cleanRow(source,map,true).row[8], 'ca@dharmanutritionclinic.com')
@@ -44,12 +44,12 @@ source[11] = '2026-11-18'
 source[15] = 'call'
 source[16] = 'Facebook'
 source[18] = 'Zelle'
-source[19] = 'Yes'
+source[19] = '20.52'
 const verified = cleanRow(source,map,false,'New Leads')
 assert.equal(verified.row[11], '2026-11-18')
 assert.equal(verified.row[13], 'Jane')
 assert.equal(verified.row[15], 'Call')
-assert.equal(verified.row[19], 'true')
+assert.equal(verified.row[19], '20.52')
 assert.equal(verified.row[20], 'New Leads')
 assert.equal(verified.row[21], 'New Leads')
 assert.equal(verified.issues.length, 0)
@@ -67,3 +67,35 @@ assert.equal(cleanRow(source,map,false,'New Leads').row[4],'Aline Strelow')
 
 for (const name of ['Maria Sandoval','Ana Sandoval',' MARIA SANDOVAL ']) assert.equal(canonicalPerson(name),'Ana Sandoval')
 assert.equal(canonicalPerson('Maria Sanchez'),'Maria Sanchez')
+
+for (const channel of ['Aircall','Doxy','WhatsApp']) {
+ source[15]=channel
+ assert.equal(cleanRow(source,map,false,'New Leads').row[15],'Call')
+}
+source[15]=''
+assert.equal(cleanRow(source,map,false,'New Leads').row[15],'Call')
+
+
+assert.equal(cleanRow(['Jane Doe',...source.slice(1)],map,false,'New Leads').row[0],'Jane Doe')
+
+
+source[16]='Repurchase list'
+assert.equal(cleanRow(source,map,false,'New Leads').row[16],'')
+assert.ok(!cleanRow(source,map,false,'New Leads').issues.some(issue=>issue.startsWith('Source')))
+source[16]=''
+assert.equal(cleanRow(source,map,false,'Customer Service').row[16],'')
+source[16]='facebook'
+assert.equal(cleanRow(source,map,false,'New Leads').row[16],'Facebook')
+
+const fallbackSource = [...source]
+fallbackSource[0]='2147302774 - 12147302774 -'
+fallbackSource[3]=''
+assert.equal(cleanRow(fallbackSource,map,false,'New Leads').row[0],'Client - 12147302774')
+assert.ok(cleanRow(fallbackSource,map,false,'New Leads').issues.includes('Missing phone'))
+fallbackSource[0]='CS -'
+assert.ok(cleanRow(fallbackSource,map,false,'New Leads').issues.includes('Missing usable deal name'))
+
+source[19]='true'
+assert.ok(cleanRow(source,map,false,'New Leads').issues.includes('Installments must be a currency amount'))
+source[19]=''
+assert.ok(!cleanRow(source,map,false,'New Leads').issues.some(issue=>issue.startsWith('Installments')))

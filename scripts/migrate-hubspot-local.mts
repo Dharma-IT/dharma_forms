@@ -1,6 +1,8 @@
-﻿import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { lineItemData, moneyCents, moneyText } from '../src/migration-line-items.ts'
+import { productDetails, productText } from '../src/migration-products.ts'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { canonicalPerson, cleanRow, columns, csv } from '../src/migration.ts'
+import { canonicalPerson, cleanRow, columns, csv, dealColumns, dealExportRow } from '../src/migration.ts'
 import { biginRequest, getFormMetadata } from '../server/submissions.mjs'
 
 const root = resolve('.migration-local')
@@ -109,54 +111,99 @@ while(nextContactOffset<ids.length){
 }
 }
 await Promise.all([readContacts(),readContacts(),readContacts()])
+let productProperties:Record<string,any> = {}
+try { productProperties=JSON.parse(await readFile(resolve(root,'product-enrichment/deals.json'),'utf8')) } catch(error:any) { if(error.code!=='ENOENT')throw error }
+const actualLines:Record<string,any[]> = JSON.parse(await readFile(resolve(root,'line-items/deals.json'),'utf8'))
+const installmentProperties:Record<string,any> = JSON.parse(await readFile(resolve(root,'installments/deals.json'),'utf8'))
+const catalog:any[] = JSON.parse(await readFile(resolve(root,'line-items/bigin-products.json'),'utf8'))
+const associatedRows:string[][]=[]
+const financialRows:string[][]=[]
+let dealsUsingLineItemTotal=0,associatedRowsNeedingReview=0
+const productRows:string[][]=[]
+let dealsWithProducts=0,dealsWithProductValues=0
 const output=resolve(root,'exports');await mkdir(output,{recursive:true})
 const groups:Record<string,string[][]>={'New Leads':[],'Customer Service':[]}
-const review:string[][]=[];const issueCounts:Record<string,number>={};let fallbackCount=0,recoveredPhones=0,paidDates=0,missingPaidDates=0
+const review:string[][]=[];const issueCounts:Record<string,number>={};let fallbackCount=0,unmatchedOwnerFallbackCount=0,recoveredPhones=0,paidDates=0,missingPaidDates=0
 const audit:string[][]=[]
 for(const deal of deals){
- const p=deal.properties;const pipeline=target.get(p.pipeline)!;const issues:string[]=[]
+ const p={...deal.properties,...productProperties[deal.id],...installmentProperties[deal.id]};const pipeline=target.get(p.pipeline)!;const issues:string[]=[]
  const associated=deal.associations?.contacts?.results??[]
  if(associated.some((a:any)=>!contacts.has(a.id)))issues.push('Linked contact could not be retrieved')
  const linked=associated.map((a:any)=>({id:a.id,...contacts.get(a.id)}))
  let phone=p.phone??''
  if(!phone.replace(/\D/g,'')) {const recovered=linked.map((c:any)=>c.phone||c.mobilephone||(/^\d+@dummy\.com$/i.test(c.email??'')?c.email.split('@')[0]:'')).find((v:any)=>v?.replace(/\D/g,''));if(recovered){phone=recovered;recoveredPhones++}}
  let ownerEmail=''
+ let ownerAssignment='matched'
+ const originalOwner=owners.get(p.hubspot_owner_id)
+ const originalOwnerName=originalOwner?`${originalOwner.firstName??''} ${originalOwner.lastName??''}`.trim():''
  if(p.hubspot_owner_id){
   const owner=owners.get(p.hubspot_owner_id)
   const fullName=owner?`${owner.firstName??''} ${owner.lastName??''}`.trim():''
   let matches=owner?.email?activeUsers.filter((u:any)=>u.email?.toLowerCase()===owner.email.toLowerCase()):[]
   if(!matches.length && fullName)matches=activeUsers.filter((u:any)=>canonicalPerson(u.full_name??'').toLowerCase()===canonicalPerson(fullName).toLowerCase())
   if(matches.length===1)ownerEmail=matches[0].email
-  else {ownerEmail=owner?.email||fullName||p.hubspot_owner_id;issues.push('Existing HubSpot owner has no unique active Bigin match')}
- }else{ownerEmail=fallback.email;fallbackCount++}
+  else {ownerEmail=fallback.email;fallbackCount++;unmatchedOwnerFallbackCount++;ownerAssignment='unmatched owner assigned to Carolina'}
+ }else{ownerEmail=fallback.email;fallbackCount++;ownerAssignment='unassigned source assigned to Carolina'}
  const originalStage=pipelines.find((v:any)=>v.id===p.pipeline)?.stages.find((s:any)=>s.id===p.dealstage)?.label??p.dealstage
- const input=[p.dealname,label('meeting_type',p.meeting_type),p.evaluation_date_and_hour_2,phone,label('agent_lead_management',p.agent_lead_management),label('classification',p.classification),originalStage,p.closedate,ownerEmail,p.amount,'',p.paid_date_all_pipelines,p.product,'',label('hs_tag_ids',p.hs_tag_ids),label('channel',p.channel),label('source',p.source),p.noted,label('payment_type',p.payment_type),p.installment,'',''].map(v=>String(v??''))
- if(linked.length===1)input[13]=`${linked[0].firstname??''} ${linked[0].lastname??''}`.trim()
- if(linked.length>1)issues.push('Multiple linked HubSpot contacts: verify Bigin contact association')
+ const rawItems=actualLines[deal.id]??[]
+ const normalizedItems=rawItems.map(lineItemData)
+ const products=rawItems.length?normalizedItems.map(item=>({name:item.name,quantity:item.quantity,value:item.value,source:'HubSpot line item'})):productDetails(p,label)
+ const completeProductTotal=normalizedItems.length>0&&normalizedItems.every(item=>!item.issues.length)
+ const productTotal=completeProductTotal?moneyText(normalizedItems.reduce((total,item)=>total+item.total!,0n)):''
+ const baseAmount=productTotal||p.amount||''
+ if(completeProductTotal)dealsUsingLineItemTotal++
+ const installment=String(p.installment_fee??'').trim()||'0.00'
+ const amountCents=moneyCents(baseAmount)
+ const feeCents=installment?moneyCents(installment):0n
+ const expectedPayable=amountCents!==null&&feeCents!==null?moneyText(amountCents+feeCents):''
+ if(products.length)dealsWithProducts++
+ if(products.some(product=>product.value))dealsWithProductValues++
+ const input=[p.dealname,label('meeting_type',p.meeting_type),p.evaluation_date_and_hour_2,phone,label('agent_lead_management',p.agent_lead_management),label('classification',p.classification),originalStage,p.closedate,ownerEmail,baseAmount,'',p.paid_date_all_pipelines,productText(products),'',label('hs_tag_ids',p.hs_tag_ids),label('channel',p.channel),label('source',p.source),p.noted,label('payment_type',p.payment_type),installment,'',''].map(v=>String(v??''))
+ // User-approved fallback: use the first linked contact when there are several.
+ if(linked.length)input[13]=`${linked[0].firstname??''} ${linked[0].lastname??''}`.trim()
  const cleaned=cleanRow(input,columns.map((_,i)=>i),true,pipeline)
+ cleaned.row[22]=deal.id
  issues.push(...cleaned.issues)
+ if(cleaned.row[12].length>255)issues.push('Product names exceed the Bigin Product field limit of 255 characters')
  const live=metadata.pipelines.find((v:any)=>v.name===pipeline)!
  if(!live.stages.includes(cleaned.row[6]))issues.push('Stage is not in live Bigin pipeline')
  for(const index of [4,15,16,18]){
    const field=live.fields.find((f:any)=>f.field_label===columns[index]);const options=(field?.pick_list_values??[]).map((o:any)=>o.display_value||o.actual_value)
    if(cleaned.row[index] && options.length && !options.includes(cleaned.row[index]))issues.push(`${columns[index]} is not in live Bigin options`)
  }
+ for(let index=0;index<rawItems.length;index++){
+  const item=rawItems[index],normalized=normalizedItems[index]
+  const matches=catalog.filter(product=>String(product.Product_Name??'').trim().toLowerCase()===normalized.name.toLowerCase())
+  const productId=matches.length===1?matches[0].id:''
+  const productIssues=[...normalized.issues]
+  if(issues.length)productIssues.push('Parent deal is excluded from the ready deal files')
+  if(!productId)productIssues.push(matches.length?'Ambiguous Bigin product name':'Product must be added to Bigin catalog')
+  if(productIssues.length)associatedRowsNeedingReview++
+  associatedRows.push(['',productId,normalized.name,normalized.price,normalized.quantity,normalized.discount,normalized.value,deal.id,item.id,pipeline,cleaned.row[0],cleaned.row[3],cleaned.row[10],productIssues.join('; '),'Fill Parent ID with the imported Bigin Deal ID'])
+ }
+ financialRows.push([deal.id,pipeline,p.amount??'',productTotal,baseAmount,installment,expectedPayable,completeProductTotal?'Actual line-item net totals':'Original HubSpot Amount',rawItems.length?'':'No actual line items; product selections are informational',String(p.installment_fee??'')])
+ for(const product of products)productRows.push([deal.id,pipeline,cleaned.row[0],cleaned.row[3],cleaned.row[10],product.name,product.quantity,product.value,product.source,p.amount??'',issues.length?'review':'ready'])
  if(p.paid_date_all_pipelines)paidDates++;else missingPaidDates++
- audit.push([deal.id,pipeline,p.hubspot_owner_id??'',ownerEmail,linked.map((c:any)=>c.id).join(';'),p.paid_date_all_pipelines??'',issues.length?'review':'ready'])
+ audit.push([deal.id,pipeline,p.hubspot_owner_id??'',ownerEmail,linked.map((c:any)=>c.id).join(';'),p.paid_date_all_pipelines??'',issues.length?'review':'ready',originalOwner?.email??'',originalOwnerName,ownerAssignment])
  if(issues.length){for(const issue of new Set(issues)){const key=issue.split(':')[0];issueCounts[key]=(issueCounts[key]??0)+1}review.push([deal.id,[...new Set(issues)].join('; '),...cleaned.row])}
  else groups[pipeline].push(cleaned.row)
 }
+const productHeaders=['HubSpot Deal ID','Pipeline','Deal Name','Phone Number','Email','Product Name','Product Quantity (HubSpot)','Product Value (HubSpot)','Source Product Field','Original Deal Amount','Deal Disposition']
 const files:string[]=[]
-for(const [name,rows]of Object.entries(groups))for(let offset=0;offset<rows.length;offset+=10000){const filename=`${name.toLowerCase().replaceAll(' ','-')}-${1+offset/10000}.csv`;await writeFile(resolve(output,filename),csv([columns,...rows.slice(offset,offset+10000)]));files.push(filename)}
+for(const [name,rows]of Object.entries(groups))for(let offset=0;offset<rows.length;offset+=10000){const filename=`${name.toLowerCase().replaceAll(' ','-')}-${1+offset/10000}.csv`;await writeFile(resolve(output,filename),csv([dealColumns,...rows.slice(offset,offset+10000).map(dealExportRow)]));files.push(filename)}
 await writeFile(resolve(output,'review.csv'),csv([['HubSpot Deal ID','Issues',...columns],...review]))
-await writeFile(resolve(output,'audit.csv'),csv([['HubSpot Deal ID','Pipeline','HubSpot Owner ID','Export Owner','HubSpot Contact IDs','Original Paid Date','Disposition'],...audit]))
+await writeFile(resolve(output,'audit.csv'),csv([['HubSpot Deal ID','Pipeline','HubSpot Owner ID','Export Owner','HubSpot Contact IDs','Original Paid Date','Disposition','Original HubSpot Owner Email','Original HubSpot Owner Name','Owner Assignment'],...audit]))
 for (const name of Object.keys(groups)) {
  const slug=name.toLowerCase().replaceAll(' ','-')
+ await writeFile(resolve(output,slug+'-associated-products.csv'),csv([['Parent ID','Product ID','Product Name','List Price','Quantity','Discount (%)','Source Line Total','HubSpot Deal ID','HubSpot Line Item ID','Pipeline','Deal Name','Phone Number','Email','Product Review Issues','Linking Requirement'],...associatedRows.filter(row=>row[9]===name)]))
+ await writeFile(resolve(output,slug+'-financial-audit.csv'),csv([['HubSpot Deal ID','Pipeline','Original HubSpot Amount','Products Net Total','Export Amount','Installments','Expected Total Amount Payable','Amount Basis','Notes','Original HubSpot Installment Fee'],...financialRows.filter(row=>row[1]===name)]))
+ await writeFile(resolve(output,slug+'-products.csv'),csv([productHeaders,...productRows.filter(row=>row[1]===name)]))
  await writeFile(resolve(output,slug+'-review.csv'),csv([['HubSpot Deal ID','Issues',...columns],...review.filter(row=>row[22]===name)]))
- await writeFile(resolve(output,slug+'-audit.csv'),csv([['HubSpot Deal ID','Pipeline','HubSpot Owner ID','Export Owner','HubSpot Contact IDs','Original Paid Date','Disposition'],...audit.filter(row=>row[1]===name)]))
+ await writeFile(resolve(output,slug+'-audit.csv'),csv([['HubSpot Deal ID','Pipeline','HubSpot Owner ID','Export Owner','HubSpot Contact IDs','Original Paid Date','Disposition','Original HubSpot Owner Email','Original HubSpot Owner Name','Owner Assignment'],...audit.filter(row=>row[1]===name)]))
 }
 const reviewByPipeline=Object.fromEntries(Object.keys(groups).map(name=>[name,review.filter(row=>row[22]===name).length]))
-const report={reviewByPipeline,completedAt:new Date().toISOString(),scanned,selected:deals.length,ready:Object.fromEntries(Object.entries(groups).map(([k,v])=>[k,v.length])),review:review.length,fallbackCount,recoveredPhones,paidDates,missingPaidDates,issueCounts,files,notes:['Read-only HubSpot and Bigin access. No CRM writes.','Missing dates use the reference 2020-01-01 placeholder. Original paid dates are retained in audit.csv.','Email is auxiliary; match Contact Name to existing Bigin contacts at import.','Existing owners without a unique active Bigin user match are excluded for review.','Cached source snapshot can be resumed; use a new cache directory for a fresh export.']}
+const productSummary=Object.fromEntries(Object.keys(groups).map(name=>[name,{dealsWithProducts:new Set(productRows.filter(row=>row[1]===name).map(row=>row[0])).size,detailRows:productRows.filter(row=>row[1]===name).length,rowsWithValue:productRows.filter(row=>row[1]===name&&row[7]).length}]))
+const report={dealsUsingLineItemTotal,associatedProductRows:associatedRows.length,associatedRowsNeedingReview,installmentDeals:Object.keys(installmentProperties).length,targetFieldStatus:metadata.pipelines.map(p=>({pipeline:p.name,installments:p.fields.some(f=>f.api_name==='Installments'&&f.data_type==='currency'),totalPayable:p.fields.find(f=>f.api_name==='Total_Amount_Payable')?.formula,hubspotDealId:p.fields.find(f=>f.field_label==='HubSpot Deal ID')?.api_name??null})),productSummary,dealsWithProducts,dealsWithProductValues,reviewByPipeline,completedAt:new Date().toISOString(),scanned,selected:deals.length,ready:Object.fromEntries(Object.entries(groups).map(([k,v])=>[k,v.length])),review:review.length,fallbackCount,unmatchedOwnerFallbackCount,recoveredPhones,paidDates,missingPaidDates,issueCounts,files,notes:['Read-only HubSpot and Bigin access. No CRM writes.','Missing dates use the reference 2020-01-01 placeholder. Original paid dates are retained in audit.csv.','Email is auxiliary; match Contact Name to existing Bigin contacts at import.','Existing owners without a unique active Bigin user match are assigned to Carolina. Original owner IDs, emails and names are preserved in audit.csv.','Cached source snapshot can be resumed; use a new cache directory for a fresh export.']}
 if(Object.values(groups).reduce((n,r)=>n+r.length,0)+review.length!==deals.length)throw Error('Reconciliation failed')
 await writeFile(resolve(output,'summary.json'),JSON.stringify(report,null,2)+'\n')
 console.log(JSON.stringify(report,null,2))

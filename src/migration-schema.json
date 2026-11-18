@@ -301,20 +301,31 @@
         "options": [
           "Debit/Credit",
           "Klarna",
-          "Zelle"
+          "Zelle",
+          "Credit/Debit Card",
+          "Affirm",
+          "Afterpay",
+          "Apple pay",
+          "Care credit",
+          "Cashapp",
+          "Cash",
+          "Money order",
+          "Payment through the clinic",
+          "Sezzel",
+          "Vemno"
         ]
       },
       {
-        "label": "Installment",
-        "api": "Installment",
-        "type": "boolean",
+        "label": "Installments",
+        "api": "Installments",
+        "type": "currency",
         "required": false,
         "readOnly": false,
         "options": []
       },
       {
-        "label": "Total Payable",
-        "api": "Total_Payable",
+        "label": "Total Amount Payable",
+        "api": "Total_Amount_Payable",
         "type": "formula",
         "required": false,
         "readOnly": true,
@@ -636,20 +647,31 @@
         "options": [
           "Debit/Credit",
           "Klarna",
-          "Zelle"
+          "Zelle",
+          "Credit/Debit Card",
+          "Affirm",
+          "Afterpay",
+          "Apple pay",
+          "Care credit",
+          "Cashapp",
+          "Cash",
+          "Money order",
+          "Payment through the clinic",
+          "Sezzel",
+          "Vemno"
         ]
       },
       {
-        "label": "Installment",
-        "api": "Installment",
-        "type": "boolean",
+        "label": "Installments",
+        "api": "Installments",
+        "type": "currency",
         "required": false,
         "readOnly": false,
         "options": []
       },
       {
-        "label": "Total Payable",
-        "api": "Total_Payable",
+        "label": "Total Amount Payable",
+        "api": "Total_Amount_Payable",
         "type": "formula",
         "required": false,
         "readOnly": true,

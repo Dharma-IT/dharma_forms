@@ -1,0 +1,21 @@
+import{readFile,readdir,mkdir,writeFile}from'node:fs/promises'
+const root='.migration-local/line-items';await mkdir(root+'/associations',{recursive:true});await mkdir(root+'/items',{recursive:true})
+const token=Object.keys(process.env).find(k=>/HUBSPOT.*(TOKEN|KEY)/i.test(k))
+async function hub(path,body){for(let a=0;a<6;a++){const r=await fetch('https://api.hubapi.com'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+process.env[token],'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});if(r.ok){const j=await r.json();if(j.errors?.some(e=>e.subCategory!=='crm.associations.NO_ASSOCIATIONS_FOUND'))throw Error('Partial HubSpot response for '+path);return j}if(r.status!==429&&r.status<500)throw Error('HubSpot HTTP '+r.status+' '+path);await new Promise(r=>setTimeout(r,1000*(a+1)))}throw Error('HubSpot retries exhausted')}
+const deals=[]
+for(const f of(await readdir('.migration-local/search-pages')).filter(f=>f.startsWith('data-')))for(const d of JSON.parse(await readFile('.migration-local/search-pages/'+f,'utf8')).results)deals.push(d.id)
+deals.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
+const associations=new Map();let offset=0
+async function associationsWorker(){while(offset<deals.length){const start=offset;offset+=1000;const ids=deals.slice(start,start+1000);const file=root+'/associations/'+start+'.json';let data;try{data=JSON.parse(await readFile(file,'utf8'));if(data.ids.join(',')!==ids.join(','))throw Error('Line item cache mismatch')}catch(e){if(e.code!=='ENOENT')throw e;data={ids,...await hub('/crm/v4/associations/deals/line_items/batch/read',{inputs:ids.map(id=>({id}))})};await writeFile(file,JSON.stringify(data))}const covered=new Set((data.results??[]).map(r=>r.from.id));for(const error of data.errors??[]){for(const id of error.context?.fromObjectId??[]){covered.add(id);associations.set(id,[])}}if(ids.some(id=>!covered.has(id)))throw Error('Incomplete line item association batch');for(const row of data.results??[]){if(row.paging?.next)throw Error('Truncated line-item associations');associations.set(row.from.id,row.to.map(t=>String(t.toObjectId)))}if(start%25000===0)console.log(JSON.stringify({phase:'line-item-links',loaded:Math.min(start+1000,deals.length),total:deals.length}))}}
+await Promise.all([associationsWorker(),associationsWorker(),associationsWorker()])
+const ids=[...new Set([...associations.values()].flat())].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
+console.log(JSON.stringify({phase:'line-item-records',dealsWithLineItems:[...associations.values()].filter(v=>v.length).length,items:ids.length}))
+const props=['name','price','quantity','amount','discount','hs_discount_percentage','hs_product_id','hs_sku','hs_line_item_currency_code','hs_total_discount','hs_pre_discount_amount']
+const fieldData=await hub('/crm/v3/properties/line_items');const fields=props.filter(p=>fieldData.results.some(f=>f.name===p))
+const items=new Map();offset=0
+async function itemsWorker(){while(offset<ids.length){const start=offset;offset+=100;const chunk=ids.slice(start,start+100);const file=root+'/items/'+start+'.json';let data;try{data=JSON.parse(await readFile(file,'utf8'));if(data.ids.join(',')!==chunk.join(','))throw Error('Line item record cache mismatch')}catch(e){if(e.code!=='ENOENT')throw e;data={ids:chunk,...await hub('/crm/v3/objects/line_items/batch/read',{properties:fields,inputs:chunk.map(id=>({id}))})};await writeFile(file,JSON.stringify(data))}for(const item of data.results??[])items.set(item.id,item.properties);if(start%5000===0)console.log(JSON.stringify({phase:'line-item-records',loaded:Math.min(start+100,ids.length),total:ids.length}))}}
+await Promise.all([itemsWorker(),itemsWorker(),itemsWorker()])
+if(items.size!==ids.length)throw Error('Missing line-item records')
+await writeFile(root+'/deals.json',JSON.stringify(Object.fromEntries([...associations].map(([id,links])=>[id,links.map(itemId=>({id:itemId,...items.get(itemId)}))]))))
+await writeFile(root+'/summary.json',JSON.stringify({deals:deals.length,dealsWithLineItems:[...associations.values()].filter(v=>v.length).length,items:items.size,completedAt:new Date().toISOString()},null,2))
+console.log(await readFile(root+'/summary.json','utf8'))

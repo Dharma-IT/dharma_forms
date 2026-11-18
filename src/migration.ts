@@ -1,5 +1,5 @@
-﻿import schema from './migration-schema.json' with { type: 'json' }
-export const columns = ['Deal Name', 'Meeting type', 'Evaluation date and hour', 'Phone Number', 'Agent Lead Management', 'Lead Cassification', 'Stage', 'Closing Date', 'Deal Owner', 'Amount', 'Email', 'Paid Date', 'Product', 'Contact Name', 'Tag', 'Channel', 'Source', 'Payment Notes', 'Payment Method', 'Installment', 'Pipeline', 'Sub Pipeline']
+import schema from './migration-schema.json' with { type: 'json' }
+export const columns = ['Deal Name', 'Meeting type', 'Evaluation date and hour', 'Phone Number', 'Agent Lead Management', 'Lead Cassification', 'Stage', 'Closing Date', 'Deal Owner', 'Amount', 'Email', 'Paid Date', 'Product', 'Contact Name', 'Tag', 'Channel', 'Source', 'Payment Notes', 'Payment Method', 'Installments', 'Pipeline', 'Sub Pipeline', 'HubSpot Deal ID']
 export const aliases = [ ['dealname','deal name'], ['meeting_type','meeting type'], ['evaluation_date_and_hour_2','evaluation date and hour'], ['phone','phone number','mobile phone number','mobilephone'], ['agent_lead_management','agent lead management'], ['classification','lead classification'], ['dealstage','deal stage'], ['closedate','close date'], ['hubspot_owner_id','deal owner','deal ownership'], ['amount'], ['email'], ['paid_date_all_pipelines','paid date (all pipelines)','paid date'], ['product'] ]
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
 export function canonicalPerson(value: string) {
@@ -34,15 +34,22 @@ const stages: Record<string,string> = { 'NEW LEAD':'New Leads','NEW LEADS':'New 
 aliases[5].push('Lead Cassification')
 aliases[6].push('Stage')
 aliases[7].push('Closing Date')
-aliases.push(['contact name'], ['tag', 'tags'], ['channel', 'chanel'], ['source', 'lead source'], ['payment notes', 'payment_notes'], ['payment method', 'payment_method'], ['installment'], [], [])
+aliases.push(['contact name'], ['tag', 'tags'], ['channel', 'chanel'], ['source', 'lead source'], ['payment notes', 'payment_notes'], ['payment method', 'payment_method'], ['installments','installment fee','installment_fee'], [], [])
 export function cleanRow(source: string[], mapping: number[], placeholders: boolean, pipeline?: string) {
   const row = columns.map((_, i) => (source[mapping[i]] ?? '').trim())
-  const prefix = row[0].match(/^\s*(sellers?|cs|customer\s+service|nutri|nutritionists?)\s*[-–—:]\s*/i)
-  const team = prefix ? (/^sell/i.test(prefix[1]) ? 'Sellers' : /^(cs|customer)/i.test(prefix[1]) ? 'CS' : 'Nutri') : ''
+  const originalName = row[0]
+  const prefix = row[0].match(/^\s*(new\s+sale|sellers?|cs|customer\s+service|nutri|nutritionists?)\s*[-–—:]\s*/i)
+  const team = prefix ? (/^(sell|new\s+sale)/i.test(prefix[1]) ? 'Sellers' : /^(cs|customer)/i.test(prefix[1]) ? 'CS' : 'Nutri') : ''
   const clientName = row[0].replace(/^\s*(?:new\s+sale|sellers?|cs|customer\s+service|nutri|nutritionists?)\s*[-–—:]\s*/i,'').replace(/[\d\-–—]/g,' ').replace(/\s+/g,' ').trim()
   row[0] = clientName ? (team ? `${team} - ${clientName}` : clientName) : ''
   row[3] = row[3].replace(/\D/g,'')
+  if (!row[0]) {
+    const nameNumber = (originalName.match(/\+?\d[\d ()]*\d/g) ?? []).map(value => value.replace(/\D/g, '')).filter(value => value.length >= 7 && value.length <= 15).sort((a, b) => b.length - a.length)[0]
+    const number = row[3] || nameNumber
+    if (number) row[0] = `Client - ${number}`
+  }
   row[6] = stages[row[6].toUpperCase()] ?? row[6]
+  if (!row[15] || ['aircall', 'doxy', 'whatsapp'].includes(row[15].toLowerCase())) row[15] = 'Call'
   const issues: string[] = []
   for (const index of [7,11]) {
     if (!row[index]) { if (placeholders) row[index] = '2020-01-01' }
@@ -71,16 +78,12 @@ export function cleanRow(source: string[], mapping: number[], placeholders: bool
       if (row[index] && field?.options.length) {
         const match = field.options.find(value => value.toLowerCase() === row[index].toLowerCase())
         if (match) row[index] = match
+        else if (index === 16) row[index] = ''
         else issues.push(`${columns[index]} is not an available Bigin option: ${row[index]}`)
       }
     }
   }
-  if (row[19]) {
-    const value = row[19].toLowerCase()
-    if (['true','yes','1'].includes(value)) row[19] = 'true'
-    else if (['false','no','0'].includes(value)) row[19] = 'false'
-    else issues.push('Installment must be yes/no or true/false')
-  }
+  if (row[19] && !/^-?\d+(?:\.\d+)?$/.test(row[19])) issues.push('Installments must be a currency amount')
   if (row[9] && !/^-?\d+(?:\.\d+)?$/.test(row[9])) issues.push('Amount must be a number without currency symbols or separators')
   if (row[2] && (!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/.test(row[2]) || Number.isNaN(Date.parse(row[2])))) issues.push('Evaluation date and hour must be an ISO date/time')
   if (!row[0]) issues.push('Missing usable deal name')
@@ -95,3 +98,7 @@ export function csv(rows: string[][]) {
 
 
 
+
+// Import is started inside the selected Bigin pipeline; routing columns stay in audit files.
+export const dealColumns = columns.filter((_, index) => index !== 20 && index !== 21)
+export function dealExportRow(row: string[]) { return row.filter((_, index) => index !== 20 && index !== 21) }
