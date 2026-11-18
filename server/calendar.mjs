@@ -6,7 +6,7 @@ export async function getCalendar(date, request = biginRequest) {
     throw new Error('Select a valid calendar date.')
   }
   const [members, users] = await Promise.all([getMembers(), getBiginUsers(request)])
-  const people = members.filter(member => ['sellers', 'customer-service'].includes(member.team))
+  const people = members.filter(member => ['sellers', 'customer-service', 'nutritionists'].includes(member.team))
   const unique = [...new Set(people.map(member => member.id))].map(id => {
     const member = people.find(person => person.id === id)
     return { id, name: member.name, email: users.find(user => user.id === id)?.email || '', teams: people.filter(person => person.id === id).map(person => person.team) }

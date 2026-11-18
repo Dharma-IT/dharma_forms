@@ -59,3 +59,5 @@
 .calendar-toolbar button[aria-label="Next day"]:active {
   transform: translateY(1px);
 }
+
+.nutri-event { background: #e6def4; border-left: 3px solid #73539c; }

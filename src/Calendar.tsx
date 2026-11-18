@@ -4,6 +4,7 @@ import './Calendar.css'
 
 type Person = { id: string; name: string; email: string; teams: string[] }
 type CalendarEvent = { id: string; title: string; start: string; end: string; ownerId: string; allDay: boolean; location?: string; description?: string; relatedTo?: string; participants?: { name: string; email: string; status: string }[] }
+const teamLabels: Record<string, string> = { sellers: 'Seller', 'customer-service': 'Customer Service', nutritionists: 'Nutri' }
 const zone = 'America/New_York'
 const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' })
 function dateKey(value: Date) {
@@ -71,13 +72,13 @@ export default function Calendar() {
     next.setUTCDate(next.getUTCDate() + amount)
     selectDate(next.toISOString().slice(0, 10))
   }
-  const people = data.people.filter(person => team === 'all' || person.teams.includes(team))
+  const people = data.people.filter(person => team === 'all' || (team === 'sellers-cs' ? person.teams.some(value => ['sellers', 'customer-service'].includes(value)) : person.teams.includes(team)))
   const events = data.events.filter(event => minute(event.end, date) > 0 && minute(event.start, date) < 1440)
   return <main className="team-calendar">
-    <header className="calendar-toolbar"><div><a href="/">Booking form</a><h1>Team calendar</h1></div><button onClick={() => selectDate(dateKey(new Date()))}>Today</button><button aria-label="Previous day" onClick={() => changeDay(-1)}>Previous</button><label>Date<input type="date" value={date} onChange={event => { if (event.target.value) selectDate(event.target.value) }} /></label><button aria-label="Next day" onClick={() => changeDay(1)}>Next</button><label>Team<select value={team} onChange={event => setTeam(event.target.value)}><option value="all">Sellers & Customer Service</option><option value="sellers">Sellers</option><option value="customer-service">Customer Service</option></select></label><button onClick={() => selectDate(date)} disabled={loading}>Refresh</button></header>
+    <header className="calendar-toolbar"><div><a href="/">Booking form</a><h1>Team calendar</h1></div><button onClick={() => selectDate(dateKey(new Date()))}>Today</button><button aria-label="Previous day" onClick={() => changeDay(-1)}>Previous</button><label>Date<input type="date" value={date} onChange={event => { if (event.target.value) selectDate(event.target.value) }} /></label><button aria-label="Next day" onClick={() => changeDay(1)}>Next</button><label>Team<select value={team} onChange={event => setTeam(event.target.value)}><option value="all">All Teams</option><option value="sellers-cs">Sellers & Customer Service</option><option value="sellers">Sellers</option><option value="customer-service">Customer Service</option><option value="nutritionists">Nutri</option></select></label><button onClick={() => selectDate(date)} disabled={loading}>Refresh</button></header>
     <p className="calendar-zone">Eastern Time (America/New_York)</p>
     {loading ? <p role="status">Loading schedules...</p> : error ? <p role="alert">{error}</p> : people.length === 0 ? <p>No team members configured for this team.</p> : <div className="calendar-scroll"><div className="calendar-grid" style={{ gridTemplateColumns: `72px repeat(${people.length}, minmax(200px, 1fr))` }}>
-      <div className="calendar-person time-heading">Time</div>{people.map(person => <div className="calendar-person" key={person.id}><strong>{person.name}</strong><span>{person.email || 'Email unavailable'}</span><small>{person.teams.map(value => value === 'sellers' ? 'Seller' : 'Customer Service').join(' / ')}</small></div>)}
+      <div className="calendar-person time-heading">Time</div>{people.map(person => <div className="calendar-person" key={person.id}><strong>{person.name}</strong><span>{person.email || 'Email unavailable'}</span><small>{person.teams.map(value => teamLabels[value] || value).join(' / ')}</small></div>)}
       <div className="calendar-hours">{Array.from({ length: 24 }, (_, hour) => <span key={hour} style={{ top: hour * 64 }}>{hour % 12 || 12} {hour < 12 ? 'AM' : 'PM'}</span>)}</div>
       {people.map(person => {
         const ownEvents = events.filter(event => event.ownerId === person.id).sort((a, b) => minute(a.start, date) - minute(b.start, date))
@@ -87,7 +88,7 @@ export default function Calendar() {
           if (group && group.some(other => minute(other.end, date) > minute(event.start, date))) group.push(event)
           else groups.push([event])
         }
-        return <div className="calendar-day" key={person.id}>{groups.flatMap(group => group.map((event, index) => <button key={event.id} className={`calendar-event ${person.teams.includes('sellers') ? 'seller-event' : 'cs-event'}`} style={{ top: minute(event.start, date) * 64 / 60, height: Math.max(22, (minute(event.end, date) - minute(event.start, date)) * 64 / 60), left: `${index * 100 / group.length}%`, width: `${100 / group.length}%` }} onClick={() => setSelected(event)} title={`${event.title}\n${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}><strong>{event.title}</strong><span>{event.allDay ? 'All day' : `${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}</span></button>))}</div>
+        return <div className="calendar-day" key={person.id}>{groups.flatMap(group => group.map((event, index) => <button key={event.id} className={`calendar-event ${team === 'nutritionists' ? 'nutri-event' : team === 'customer-service' ? 'cs-event' : person.teams.includes('sellers') ? 'seller-event' : person.teams.includes('customer-service') ? 'cs-event' : 'nutri-event'}`} style={{ top: minute(event.start, date) * 64 / 60, height: Math.max(22, (minute(event.end, date) - minute(event.start, date)) * 64 / 60), left: `${index * 100 / group.length}%`, width: `${100 / group.length}%` }} onClick={() => setSelected(event)} title={`${event.title}\n${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}><strong>{event.title}</strong><span>{event.allDay ? 'All day' : `${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}</span></button>))}</div>
       })}
     </div></div>}
     {selected && <EventDetails event={selected} owner={data.people.find(person => person.id === selected.ownerId)} onClose={() => setSelected(null)} />}
