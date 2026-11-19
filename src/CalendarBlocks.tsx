@@ -64,7 +64,7 @@ export default function CalendarBlocks({ member, api, onClose }: Props) {
     <label>Find blocks on a date<input type="date" value={filterDate} onChange={event => { setFilterDate(event.target.value); setVisibleCount(20) }} /></label>
     {busy && <p role="status">Updating calendar blocks…</p>}
     {!busy && !error && !ownBlocks.length && <p>No scheduled calendar blocks.</p>}
-    <ul>{ownBlocks.slice(0, visibleCount).map(block => <li key={block.id}><span>{block.title === 'Out of office' && <strong>Out of office<br /></strong>}{format.format(new Date(block.start))} — {format.format(new Date(block.end))} (end excluded)</span><button type="button" disabled={busy} onClick={() => remove(block)}>Remove block</button></li>)}</ul>
+    <ul>{ownBlocks.slice(0, visibleCount).map(block => <li key={block.id}><span>{block.title && <strong>{block.title}<br /></strong>}{format.format(new Date(block.start))} — {format.format(new Date(block.end))} (end excluded)</span><button type="button" disabled={busy} onClick={() => remove(block)}>Remove block</button></li>)}</ul>
     {ownBlocks.length > visibleCount && <button type="button" onClick={() => setVisibleCount(count => count + 20)}>Show more blocks ({ownBlocks.length - visibleCount} remaining)</button>}
     <button type="button" disabled={busy} onClick={onClose}>Close calendar blocks</button>
   </section>

@@ -2,7 +2,7 @@ import { biginRequest } from './submissions.mjs'
 import { getMembers } from './teams.mjs'
 
 const title = 'Dharma calendar block'
-const managedTitles = [title, 'Out of office']
+const managedTitles = [title, 'Out of office', 'Lunch']
 const marker = 'Managed by Dharma Forms calendar blocking v1.'
 const zone = 'America/New_York'
 const formatter = new Intl.DateTimeFormat('sv-SE', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
@@ -39,7 +39,7 @@ export async function listCalendarBlocks(request = biginRequest, loadMembers = g
   // Search per owner so daily blocks do not hit Bigin's search-result limit.
   for (const ownerId of ids) for (let page = 1; ; page++) {
     const cutoff = new Date(Date.now() - 86400000).toISOString().replace(/\.\d{3}Z$/, '+00:00')
-    const result = await request(`Events/search?${new URLSearchParams({ criteria: `((((Event_Title:equals:${title})or(Event_Title:equals:Out of office))and(Owner:equals:${ownerId}))and(End_DateTime:greater_than:${cutoff}))`, page: String(page), per_page: '200' })}`)
+    const result = await request(`Events/search?${new URLSearchParams({ criteria: `(((((Event_Title:equals:${title})or(Event_Title:equals:Out of office))or(Event_Title:equals:Lunch))and(Owner:equals:${ownerId}))and(End_DateTime:greater_than:${cutoff}))`, page: String(page), per_page: '200' })}`)
     for (const event of result.data || []) if (ids.has(event.Owner?.id) && managedTitles.includes(event.Event_Title) && event.Description === marker && !event.$event_cancelled) blocks.push({ id: event.id, ownerId: event.Owner.id, start: event.Start_DateTime, end: event.End_DateTime, title: event.Event_Title })
     if (!result.info?.more_records) break
   }

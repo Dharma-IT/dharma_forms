@@ -205,6 +205,13 @@ preserve the hours across daylight saving changes. Removed blocks inside the
 existing coverage remain exceptions; extension only adds later dates. The job
 does not run in local previews. Nutritionists and Booking agents are excluded.
 
+The same extension job maintains daily Lunch blocks for Alice (2–2:40 PM),
+Arles (4–4:40 PM), Brayam (1–1:40 PM), Carlos (2–2:30 PM), Yaneth (3–3:30 PM),
+Helen (2:30–3 PM), and Leonardo (1:30–2 PM), all in Eastern Time. Lunches are
+mapped to verified Bigin user IDs and only apply while the person belongs to
+Sellers or Customer Service. Zara remains a booking agent but is excluded from
+the Customer Service booking pool and team calendar through her team assignment.
+
 This supersedes the standalone PostgreSQL setup above. Run `supabase/setup.sql`
 in the Supabase SQL Editor. It creates and seeds team tables once, enables RLS,
 and grants writes only to the server's service role. Browser users deliberately
