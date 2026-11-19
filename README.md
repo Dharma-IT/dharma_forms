@@ -197,6 +197,14 @@ to reopen that time; this editor can delete only events it created. The separate
 This feature uses the existing Bigin Events read/create/delete permissions and
 requires deployment of both frontend and backend; no database migration is needed.
 
+Sellers and Customer Service also have daily **Out of office** blocks from
+midnight to 10:40 AM and from 7 PM to the next midnight, in Eastern Time.
+Production on Render extends these blocks across the upcoming bookable year on
+startup and every 12 hours. Dates use their individual New York UTC offset to
+preserve the hours across daylight saving changes. Removed blocks inside the
+existing coverage remain exceptions; extension only adds later dates. The job
+does not run in local previews. Nutritionists and Booking agents are excluded.
+
 This supersedes the standalone PostgreSQL setup above. Run `supabase/setup.sql`
 in the Supabase SQL Editor. It creates and seeds team tables once, enables RLS,
 and grants writes only to the server's service role. Browser users deliberately

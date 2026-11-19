@@ -7,6 +7,7 @@ import { getMembers, getBiginUsers, changeMember, setMemberBlocked, assertBookab
 import { authenticate, publicAuthConfig } from './supabase.mjs'
 import { getCalendar } from './calendar.mjs'
 import { listCalendarBlocks, changeCalendarBlock } from './calendar-blocks.mjs'
+import { extendOutOfOffice } from './out-of-office.mjs'
 
 const directory = new URL('../.bigin-submissions/', import.meta.url)
 await mkdir(directory, { recursive: true })
@@ -46,7 +47,11 @@ const server = createServer(async (req, res) => {
       if (!timingSafeEqual(provided, expected)) { failedPins++; return reply(401, { error: 'Incorrect PIN.' }) }
       if (req.method === 'GET' && req.url === '/api/manage-team') return reply(200, { members: await getMembers() })
       if (req.method === 'GET' && req.url === '/api/manage-team/users') return reply(200, { users: await getBiginUsers() })
-      if (req.method === 'GET' && req.url === '/api/manage-team/calendar-blocks') return reply(200, { blocks: await listCalendarBlocks() })
+      if (req.method === 'GET' && url.pathname === '/api/manage-team/calendar-blocks') {
+        const ownerId = url.searchParams.get('ownerId')
+        if (!ownerId || !/^\d+$/.test(ownerId)) return reply(400, { error: 'Select a calendar member.' })
+        return reply(200, { blocks: await listCalendarBlocks(undefined, async () => (await getMembers()).filter(member => member.id === ownerId)) })
+      }
       if (['POST', 'DELETE'].includes(req.method) && req.url === '/api/manage-team/calendar-blocks') {
         if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
         if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
@@ -101,3 +106,16 @@ const port = Number(process.env.PORT || 3001)
 server.listen(port, '0.0.0.0', () => {
   console.log(`Bigin API listening on port ${port}`)
 })
+let extendingOutOfOffice = false
+async function maintainOutOfOffice() {
+  if (extendingOutOfOffice) return
+  extendingOutOfOffice = true
+  try { const created = await extendOutOfOffice(); if (created) console.log(`Extended out-of-office coverage: ${created} calendar blocks.`) }
+  catch (error) { console.error('Could not extend out-of-office coverage:', error.message) }
+  finally { extendingOutOfOffice = false }
+}
+// Production maintains the daily schedule; local previews do not write blocks.
+if (process.env.RENDER) {
+  void maintainOutOfOffice()
+  setInterval(maintainOutOfOffice, 12 * 60 * 60 * 1000).unref()
+}
