@@ -3,7 +3,13 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "headers": [
+    { "source": "/stage", "headers": [{ "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://dharma-salestool.vercel.app" }] },
+    { "source": "/stage/", "headers": [{ "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://dharma-salestool.vercel.app" }] }
+  ],
   "rewrites": [
+    { "source": "/stage", "destination": "/index.html" },
+    { "source": "/stage/", "destination": "/index.html" },
     { "source": "/migration", "destination": "/index.html" },
     { "source": "/migration/", "destination": "/index.html" },
     { "source": "/calendar", "destination": "/index.html" },

@@ -8,6 +8,7 @@ import { authenticate, publicAuthConfig } from './supabase.mjs'
 import { getCalendar } from './calendar.mjs'
 import { listCalendarBlocks, changeCalendarBlock } from './calendar-blocks.mjs'
 import { extendOutOfOffice } from './out-of-office.mjs'
+import { getStageProducts, searchStageClients, getStageClient, getStageDeal, updateStageDeal } from './stage.mjs'
 
 const directory = new URL('../.bigin-submissions/', import.meta.url)
 await mkdir(directory, { recursive: true })
@@ -30,6 +31,22 @@ const server = createServer(async (req, res) => {
     const user = await authenticate(req.headers.authorization)
     if (!user) return reply(401, { error: 'Sign in to continue.' })
     const url = new URL(req.url, 'http://localhost')
+    if (url.pathname.startsWith('/api/stage/')) {
+      if (req.method === 'GET' && url.pathname === '/api/stage/products') return reply(200, { products: await getStageProducts() })
+      if (req.method === 'GET' && url.pathname === '/api/stage/search') return reply(200, await searchStageClients(url.searchParams.get('q')))
+      const client = url.pathname.match(/^\/api\/stage\/clients\/(\d+)$/)
+      if (req.method === 'GET' && client) return reply(200, await getStageClient(client[1]))
+      const deal = url.pathname.match(/^\/api\/stage\/deals\/(\d+)$/)
+      if (req.method === 'GET' && deal) return reply(200, { deal: await getStageDeal(deal[1]) })
+      if (req.method === 'PATCH' && deal) {
+        if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
+        if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
+        let raw = ''
+        for await (const chunk of req) { raw += chunk; if (raw.length > 16000) return reply(413, { error: 'Request too large' }) }
+        return reply(200, { deal: await updateStageDeal({ ...JSON.parse(raw), id: deal[1] }) })
+      }
+      return reply(404, { error: 'Not found' })
+    }
     if (req.method === 'GET' && url.pathname.replace(/\/$/, '') === '/api/calendar') {
       return reply(200, await getCalendar(url.searchParams.get('date')))
     }

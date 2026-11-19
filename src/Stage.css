@@ -1,0 +1,24 @@
+.stage-page { padding: clamp(1rem, 3vw, 2.5rem); max-width: 100rem; margin: auto; color: #003d2b; }
+.stage-header { margin-bottom: 1.75rem; }.stage-header h1 { font-size: clamp(1.8rem, 4vw, 2.7rem); letter-spacing: -.05em; margin-top: .5rem; }
+.stage-header p, .stage-card p { color: #617a6e; line-height: 1.65; overflow-wrap: anywhere; }.stage-eyebrow { font-size: .7rem; letter-spacing: .14em; color: #8c7135; }
+.stage-page label { display: block; min-width: 0; font-size: .875rem; font-weight: 600; margin-bottom: 1rem; }
+.stage-page input, .stage-page select, .stage-page textarea { width: 100%; min-width: 0; max-width: 100%; display: block; padding: .75rem; margin-top: .5rem; border: 1px solid #cbd8ce; border-radius: .6rem; background: white; color: #003d2b; font-size: 1rem; min-height: 2.75rem; }
+.stage-page input[readonly], .stage-page textarea[readonly] { background: #f3f7f3; color: #466251; }.stage-page textarea { resize: vertical; }
+.stage-page button { border: 1px solid #cbd8ce; border-radius: .6rem; padding: .7rem 1rem; background: white; color: #003d2b; min-height: 2.75rem; }
+.stage-page button:disabled { opacity: .55; cursor: wait; }.stage-page .stage-primary { background: #003d2b; color: white; border-color: #003d2b; }
+.stage-search { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.5rem; }.stage-search label { flex: 1 1 20rem; margin-bottom: 0; }
+.stage-columns { display: grid; grid-template-columns: minmax(15rem, .7fr) minmax(0, 2fr); gap: 1.5rem; align-items: start; }.stage-columns > *, .stage-workspace { min-width: 0; }
+.stage-card { min-width: 0; max-width: 100%; padding: clamp(1rem, 2vw, 1.75rem); border: 1px solid #dce5dc; border-radius: 1rem; background: white; }.stage-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+.stage-card h2 { font-size: 1.3rem; margin: 0 0 1rem; overflow-wrap: anywhere; }.stage-card h3 { font-size: 1rem; margin-top: 1.75rem; }.stage-card fieldset { padding: 0; margin: 0; border: 0; }
+.stage-results { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; max-height: 40rem; overflow-y: auto; }.stage-results button { width: 100%; text-align: left; }
+.stage-results strong, .stage-results span, .stage-deals strong, .stage-deals span { display: block; overflow-wrap: anywhere; }.stage-results span, .stage-deals span { font-size: .8125rem; margin-top: .35rem; }
+.stage-results button[aria-pressed=true], .stage-deals button[aria-pressed=true] { border-color: #003d2b; background: #edf5ed; box-shadow: inset 3px 0 #003d2b; }
+.stage-deals { display: flex; flex-wrap: wrap; gap: .75rem; }.stage-deals button { min-width: 0; text-align: left; flex: 1 1 14rem; }
+.stage-deal-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }.stage-deal-heading h2 { margin-top: .5rem; }
+.stage-field-grid, .stage-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.stage-table-wrap { width: 100%; overflow: auto; margin-bottom: 1rem; }.stage-page table { width: 100%; border-collapse: collapse; font-size: .875rem; }.stage-page th, .stage-page td { padding: .8rem; border-bottom: 1px solid #dce5dc; text-align: left; }.stage-page th { background: #f3f7f3; }
+.stage-product-picker { padding: 1rem; border-radius: .75rem; background: #f7f8f3; margin-top: 1rem; }
+.stage-added-product { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: center; padding: 1rem 0; border-bottom: 1px solid #dce5dc; }.stage-added-product strong { overflow-wrap: anywhere; }.stage-added-product button { grid-column: 1 / -1; justify-self: start; }
+.stage-page .stage-help { font-size: .8125rem; }.stage-save { width: 100%; }.stage-error, .stage-notice { padding: 1rem; border-radius: .7rem; line-height: 1.6; overflow-wrap: anywhere; }.stage-error { background: #fff0ec; color: #973c26; }.stage-notice { background: #e8f2e6; }
+@media (max-width: 60rem) { .stage-columns { grid-template-columns: minmax(0, 1fr); }.stage-results { max-height: 18rem; } }
+@media (max-width: 32rem) { .stage-field-grid, .stage-totals, .stage-added-product { grid-template-columns: minmax(0, 1fr); }.stage-search button { width: 100%; }.stage-page th, .stage-page td { padding: .6rem; }.stage-deal-heading button { width: 100%; } }

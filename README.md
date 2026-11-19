@@ -1,5 +1,45 @@
 # React + TypeScript + Vite
 
+## Client stage and payment editor
+
+`/stage` requires the existing Supabase employee sign-in. Search Bigin contacts
+by name, email, or phone, choose a linked New Leads or Customer Service deal,
+then change its stage, payment notes, payment method, and installment amount.
+Stages follow the selected deal's sub-pipeline; payment methods and active
+product choices come from live CRM metadata/catalog reads.
+
+Add products with a list price and quantity. Existing associated-product rows
+and discounts are preserved. The server carries forward the CRM Amount as the
+base so Bigin adds new product totals without dropping the existing amount. New rows
+append to the deal's Products tab. The Other Info `Product` text is synchronized
+with product names separated by commas; its existing 255-character CRM limit
+is validated before saving. Bigin calculates Total Amount Payable, which is
+displayed read-only and never accepted as a writable field by this API.
+The screenshots' fields belong to pipeline deals, not Contact fields: products
+are linked through the selected contact's deal, rather than creating a separate
+contact-level product field. Existing client appointments and other deals are
+unaffected. The editor rejects stale records and checks CRM readback after saves.
+
+Vercel serves `/stage` and `/stage/` through the SPA. Their CSP `frame-ancestors`
+allows only this app and `https://dharma-salestool.vercel.app` to embed the editor.
+Use this in that internal platform:
+
+```html
+<iframe src="https://dharma-forms.vercel.app/stage"
+  title="Client stages and payments"
+  style="width:100%;height:1000px;border:0"
+  referrerpolicy="strict-origin-when-cross-origin"></iframe>
+```
+
+Embedding preserves employee authentication; it does not share or bypass a
+session from the parent app. Users may need to sign in inside the frame. If a
+browser blocks embedded storage/sign-in, open the same URL in a new tab. No CRM
+tokens or management credentials should be passed in the iframe URL or messages.
+Deploy both frontend and backend to enable the route and APIs. The iframe makes
+same-origin API requests through Vercel's existing proxy; no extra CORS origins
+are required for the parent platform. Existing Bigin module and search scopes
+are reused; there is no database migration.
+
 ## Booking form preview
 
 Run `npm run dev` to preview the two-step booking form. Edit `src/booking-config.ts`
