@@ -71,3 +71,41 @@
 .block-edit-actions button:first-child { background: #003d2b; color: white; }
 .block-edit-actions button:disabled { opacity: .6; cursor: wait; }
 .block-edit-error { color: #973c26; background: #fff0ec; padding: 10px; border-radius: 8px; }
+
+/* Keep schedule geometry intact; scroll only the grid when columns exceed the viewport. */
+.team-calendar { width: 100%; max-width: none; min-width: 0; padding: clamp(1rem, 2vw, 2rem); }
+.calendar-toolbar { gap: .75rem; align-items: flex-end; }
+.calendar-toolbar > div { min-width: 0; flex: 1 1 15rem; }
+.calendar-toolbar h1 { font-size: clamp(1.5rem, 2vw, 2rem); letter-spacing: -.03em; margin-right: 0; }
+.calendar-toolbar label { min-width: 0; flex: 0 1 13rem; font-size: .8125rem; }
+.calendar-toolbar button, .calendar-toolbar input, .calendar-toolbar select { min-width: 0; max-width: 100%; min-height: 2.75rem; font-size: .875rem; }
+.calendar-zone { font-size: .8125rem; }
+.calendar-scroll { width: 100%; min-width: 0; max-height: 78dvh; overscroll-behavior: contain; scrollbar-gutter: stable; isolation: isolate; }
+.calendar-grid { width: 100%; min-width: 100%; }
+.calendar-person { min-width: 0; }
+.calendar-person strong { font-size: .875rem; }
+.calendar-person span { font-size: .75rem; overflow-wrap: anywhere; }
+.calendar-person small, .calendar-hours span { font-size: .6875rem; }
+.time-heading { left: 0; z-index: 5; }
+.calendar-event strong { font-size: .75rem; }
+.calendar-event span { font-size: .6875rem; }
+.event-dialog { width: min(38rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; }
+.event-dialog article { min-width: 0; padding: clamp(1rem, 3vw, 1.5rem); }
+.event-dialog dl { grid-template-columns: minmax(5rem, .35fr) minmax(0, 1fr); font-size: .875rem; }
+.event-close, .block-edit-button, .block-edit-actions button { min-height: 2.75rem; }
+.calendar-block-form input { max-width: 100%; min-width: 0; font-size: 1rem; min-height: 2.75rem; }
+.block-edit-actions button { flex: 1 1 8rem; }
+@media (max-width: 48rem) {
+  .calendar-toolbar > div { flex-basis: 100%; }
+  .calendar-toolbar label { flex: 1 1 10rem; }
+  .calendar-toolbar button { flex: 1 1 5rem; }
+  .calendar-scroll { max-height: 72dvh; }
+}
+@media (max-width: 30rem) {
+  .calendar-toolbar { gap: .5rem; }
+  .calendar-toolbar label { flex-basis: calc(50% - .5rem); }
+  .calendar-toolbar button[aria-label] { padding-inline: .75rem; }
+  .event-dialog dl { grid-template-columns: minmax(0, 1fr); gap: .375rem; }
+  .event-dialog dd { margin-bottom: .875rem; }
+  .event-dialog h2 { font-size: 1.25rem; }
+}

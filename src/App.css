@@ -27,3 +27,43 @@
 .brand-name, .brand-subtitle { color: #003d2b; }
 .primary:hover { background: #12523b; }
 @media (max-width: 760px) { .brand-logo { width: 76px; height: 76px; } }
+
+/* Responsive form layout, including the narrower viewport at browser zoom. */
+.booking-layout { width: 100%; max-width: 86rem; padding: clamp(1rem, 4vw, 4rem); grid-template-columns: minmax(0, .9fr) minmax(0, 1.2fr); gap: clamp(2rem, 5vw, 5.5rem); }
+.booking-layout > *, .two-col > *, .booking-summary > * { min-width: 0; }
+.form-panel { padding: clamp(1rem, 3vw, 2rem); }
+.field { font-size: .875rem; }
+.field input, .field select, .field textarea { font-size: 1rem; min-height: 2.75rem; }
+.field input, .field select { height: auto; padding-block: .75rem; }
+.phone-field select { font-size: .8125rem; }
+.primary { min-height: 2.75rem; font-size: .9375rem; line-height: 1.5; }
+.primary span { float: none; margin-left: .75rem; }
+.panel-header p, .connection-note, .form-footnote, .calendar-link { font-size: .8125rem; }
+.booking-summary dd, .summary strong { font-size: .9375rem; overflow-wrap: anywhere; }
+.booking-summary dt, .summary span { font-size: .8125rem; }
+.summary { flex-wrap: wrap; }
+.summary .client-summary { flex: 1 1 10rem; }
+.summary > button { min-height: 2.75rem; font-size: .8125rem; margin-left: 0; }
+.booking-layout.calendar-layout { width: 100%; max-width: 110rem; grid-template-columns: minmax(0, .6fr) minmax(0, 1.8fr); gap: clamp(1.5rem, 3vw, 3rem); }
+.booking-frame { display: block; min-width: 0; }
+@media (max-width: 64rem) {
+  .booking-layout, .booking-layout.calendar-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 48rem; margin-inline: auto; }
+  .intro, .calendar-layout .intro { position: static; padding-top: 0; }
+  .brand { margin: 0 0 1.5rem; }
+  .intro h1, .calendar-layout h1 { font-size: clamp(2rem, 5vw, 3rem); max-width: none; }
+  .intro h1 br { display: none; }
+  .intro-copy { margin-block: 1rem 1.5rem; }
+  .intro-footer { display: none; }
+  .steps { flex-direction: row; flex-wrap: wrap; gap: 1rem; margin-bottom: 0; }
+  .calendar-layout .intro .steps, .calendar-layout .intro-copy, .calendar-layout .eyebrow { display: none; }
+  .calendar-layout .booking-frame { height: 48rem; }
+}
+@media (max-width: 30rem) {
+  .booking-layout, .booking-layout.calendar-layout { padding: 1rem; gap: 1.5rem; }
+  .two-col, .booking-summary { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .booking-summary { gap: 1rem; }
+  .internal-badge { float: none; display: inline-block; margin-left: .5rem; }
+  .panel-header h2 { overflow-wrap: anywhere; }
+  .summary { padding: .875rem; }
+  .summary > button { margin-left: 0; }
+}

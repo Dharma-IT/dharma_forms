@@ -15,3 +15,40 @@
 .calendar-block-editor h4 { margin: 10px 0; }
 .calendar-block-editor ul { padding: 0; list-style: none; }
 .calendar-block-editor li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid #d7ded4; font-size: 13px; line-height: 1.6; }
+
+.team-page { padding: clamp(1rem, 3vw, 3rem); }
+.team-content { width: 100%; max-width: 90rem; min-width: 0; }
+.team-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.team-columns > *, .team-header > *, .team-member, .calendar-block-editor { min-width: 0; }
+.team-header { flex-wrap: wrap; }
+.team-header > div { flex: 1 1 24rem; }
+.team-header h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.team-card { padding: clamp(1rem, 2.5vw, 1.75rem); }
+.team-card p, .team-card a, .team-member h3, .team-notice, .team-error { overflow-wrap: anywhere; }
+.team-page button { min-height: 2.75rem; max-width: 100%; }
+.team-page input, .team-page select { min-height: 2.75rem; font-size: 1rem; }
+.team-page label { font-size: .875rem; }
+.team-tabs button { flex: 1 1 9rem; }
+.team-member > div { flex-wrap: wrap; }
+.calendar-block-editor li > span { min-width: 0; flex: 1 1 12rem; overflow-wrap: anywhere; }
+.pin-overlay { padding: 1rem; align-items: safe center; }
+.pin-dialog { max-height: calc(100dvh - 2rem); overflow-y: auto; padding: clamp(1rem, 5vw, 2.25rem); }
+.pin-dialog input { width: 100%; min-width: 0; letter-spacing: .4em; }
+.auth-dialog input { letter-spacing: normal; }
+.auth-bar { flex-wrap: wrap; padding: .75rem clamp(1rem, 2vw, 1.5rem); }
+.auth-bar > * { min-width: 0; overflow-wrap: anywhere; }
+.auth-bar button { min-height: 2.75rem; flex-shrink: 0; }
+.auth-brand { flex: 1 1 12rem; }
+.auth-brand img { flex-shrink: 0; }
+@media (max-width: 56rem) {
+  .team-columns, .team-placeholder { grid-template-columns: minmax(0, 1fr); }
+  .team-header { gap: 1rem; margin-bottom: 1.5rem; }
+}
+@media (max-width: 30rem) {
+  .team-tabs { gap: .5rem; }
+  .team-tabs button { flex-basis: calc(50% - .5rem); padding-inline: .5rem; }
+  .team-member > div > button { flex: 1 1 8rem; }
+  .calendar-block-editor { padding: .875rem; }
+  .auth-brand { flex-basis: 8rem; }
+  .auth-bar { gap: .5rem; }
+}
