@@ -11,3 +11,7 @@
 
 .booking-blocked { display: inline-block; font-size: 11px; padding: 4px 8px; border-radius: 12px; background: #fff0ec; color: #973c26; vertical-align: middle; }
 .team-member div { flex-wrap: wrap; }
+.calendar-block-editor { margin-top: 18px; padding: 18px; background: #f8f6f0; border: 1px solid #d7ded4; border-radius: 12px; }
+.calendar-block-editor h4 { margin: 10px 0; }
+.calendar-block-editor ul { padding: 0; list-style: none; }
+.calendar-block-editor li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid #d7ded4; font-size: 13px; line-height: 1.6; }

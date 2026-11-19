@@ -182,6 +182,21 @@ filesystem and are separate from team storage.
 
 ## Supabase storage and sign-in (current deployment)
 
+Manage Team also offers **Block calendar times** for Sellers, Nutritionists, and
+Customer Service. Choose a date with a time range, a continuous start/end date
+and time, or full days with an inclusive date range. All inputs use Eastern Time
+(`America/New_York`), including daylight saving time. Ambiguous or nonexistent
+times during a clock change must be adjusted before saving.
+
+Scheduled blocks are Bigin Events owned by the selected person. Bigin excludes
+overlapping appointment slots on that person's booking pages. They apply across
+the person's calendars, rather than only one team assignment. No participants
+are added, and existing appointments are not cancelled. Remove a saved block
+to reopen that time; this editor can delete only events it created. The separate
+**Pause app bookings** option keeps its existing team-specific behavior.
+This feature uses the existing Bigin Events read/create/delete permissions and
+requires deployment of both frontend and backend; no database migration is needed.
+
 This supersedes the standalone PostgreSQL setup above. Run `supabase/setup.sql`
 in the Supabase SQL Editor. It creates and seeds team tables once, enables RLS,
 and grants writes only to the server's service role. Browser users deliberately

@@ -6,6 +6,7 @@ import { timingSafeEqual, createHash as hash } from 'node:crypto'
 import { getMembers, getBiginUsers, changeMember, setMemberBlocked, assertBookableMembers } from './teams.mjs'
 import { authenticate, publicAuthConfig } from './supabase.mjs'
 import { getCalendar } from './calendar.mjs'
+import { listCalendarBlocks, changeCalendarBlock } from './calendar-blocks.mjs'
 
 const directory = new URL('../.bigin-submissions/', import.meta.url)
 await mkdir(directory, { recursive: true })
@@ -45,6 +46,14 @@ const server = createServer(async (req, res) => {
       if (!timingSafeEqual(provided, expected)) { failedPins++; return reply(401, { error: 'Incorrect PIN.' }) }
       if (req.method === 'GET' && req.url === '/api/manage-team') return reply(200, { members: await getMembers() })
       if (req.method === 'GET' && req.url === '/api/manage-team/users') return reply(200, { users: await getBiginUsers() })
+      if (req.method === 'GET' && req.url === '/api/manage-team/calendar-blocks') return reply(200, { blocks: await listCalendarBlocks() })
+      if (['POST', 'DELETE'].includes(req.method) && req.url === '/api/manage-team/calendar-blocks') {
+        if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
+        if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
+        let raw = ''
+        for await (const chunk of req) { raw += chunk; if (raw.length > 8000) return reply(413, { error: 'Request too large' }) }
+        return reply(200, { blocks: await changeCalendarBlock(JSON.parse(raw), req.method === 'DELETE') })
+      }
       if (['PUT', 'DELETE', 'PATCH'].includes(req.method) && req.url === '/api/manage-team') {
         if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
         if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
