@@ -1,5 +1,6 @@
 import { biginRequest } from './submissions.mjs'
 import { getMembers, getBiginUsers } from './teams.mjs'
+import { isManagedCalendarBlock } from './calendar-blocks.mjs'
 
 export async function getCalendar(date, request = biginRequest) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
@@ -23,6 +24,7 @@ export async function getCalendar(date, request = biginRequest) {
         events.push({
           id: event.id, title: event.Event_Title, start: event.Start_DateTime, end: event.End_DateTime,
           ownerId: event.Owner.id, allDay: Boolean(event.All_day),
+          editableBlock: isManagedCalendarBlock(event),
           location: event.Venue || '', description: event.Description || '',
           relatedTo: event.Related_To?.name || '',
           participants: (event.Participants || []).map(person => ({

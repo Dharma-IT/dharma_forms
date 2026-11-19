@@ -4,6 +4,7 @@ import { getMembers } from './teams.mjs'
 const title = 'Dharma calendar block'
 const managedTitles = [title, 'Out of office', 'Lunch']
 const marker = 'Managed by Dharma Forms calendar blocking v1.'
+export const isManagedCalendarBlock = event => managedTitles.includes(event?.Event_Title) && event?.Description === marker
 const zone = 'America/New_York'
 const formatter = new Intl.DateTimeFormat('sv-SE', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
@@ -54,9 +55,19 @@ export async function changeCalendarBlock(input, remove = false, request = bigin
     if (typeof input.id !== 'string' || !/^\d+$/.test(input.id)) throw new Error('Select a valid calendar block.')
     const result = await request(`Events/${input.id}`)
     const event = result.data?.[0]
-    if (event?.Owner?.id !== input.ownerId || !managedTitles.includes(event?.Event_Title) || event?.Description !== marker) throw new Error('Only blocks created by this app can be removed here.')
-    const deleted = await request(`Events/${input.id}`, 'DELETE')
-    if (deleted.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin could not remove the calendar block. Refresh and retry.')
+    if (event?.Owner?.id !== input.ownerId || !isManagedCalendarBlock(event)) throw new Error('Only blocks created by this app can be removed or changed here.')
+    if ((input.expectedStart && Date.parse(input.expectedStart) !== Date.parse(event.Start_DateTime)) || (input.expectedEnd && Date.parse(input.expectedEnd) !== Date.parse(event.End_DateTime))) throw new Error('This block changed since you opened it. Refresh the calendar before editing.')
+    if (remove === 'update') {
+      const { start, end } = blockInterval(input)
+      if (Date.parse(end) <= Date.now()) throw new Error('The block must end in the future.')
+      const result = await request('Events', 'PUT', { data: [{ id: input.id, Start_DateTime: start, End_DateTime: end }], trigger: [] })
+      if (result.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin could not update the calendar block. Refresh before retrying.')
+      const saved = (await request(`Events/${input.id}`)).data?.[0]
+      if (Date.parse(saved?.Start_DateTime) !== Date.parse(start) || Date.parse(saved?.End_DateTime) !== Date.parse(end)) throw new Error('Bigin saved different block times. Refresh the calendar to review them.')
+    } else {
+      const deleted = await request(`Events/${input.id}`, 'DELETE')
+      if (deleted.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin could not remove the calendar block. Refresh and retry.')
+    }
   } else {
     const { start, end } = blockInterval(input)
     if (Date.parse(end) <= Date.now()) throw new Error('The block must end in the future.')

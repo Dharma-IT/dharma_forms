@@ -68,3 +68,37 @@ test('block searches use Bigin-compatible date precision and constrain the owner
     return { data: [] }
   }, members)
 })
+
+test('calendar editing shortens only a verified block and preserves its owner, title, and marker', async () => {
+  let event = { id: '123', Owner: { id: '2' }, Event_Title: 'Out of office', Description: 'Managed by Dharma Forms calendar blocking v1.', Start_DateTime: '2090-01-03T15:00:00+00:00', End_DateTime: '2090-01-03T16:00:00+00:00' }
+  const original = { ...event }
+  let writes = 0
+  const request = async (path, method, body) => {
+    if (method === 'PUT') {
+      assert.equal(path, 'Events')
+      assert.deepEqual(Object.keys(body.data[0]).sort(), ['End_DateTime', 'Start_DateTime', 'id'])
+      assert.deepEqual(body.trigger, [])
+      event = { ...event, ...body.data[0] }; writes++
+      return { data: [{ code: 'SUCCESS' }] }
+    }
+    return { data: [event] }
+  }
+  const edit = { ...input, id: '123', end: '2090-01-03T10:30', expectedStart: original.Start_DateTime, expectedEnd: original.End_DateTime }
+  await changeCalendarBlock(edit, 'update', request, members)
+  assert.equal(event.End_DateTime, '2090-01-03T15:30:00+00:00')
+  assert.equal(event.Description, original.Description)
+  assert.equal(event.Event_Title, original.Event_Title)
+  await assert.rejects(changeCalendarBlock(edit, 'update', request, members), /changed since you opened/)
+  await assert.rejects(changeCalendarBlock(edit, true, request, members), /changed since you opened/)
+  assert.equal(writes, 1)
+})
+
+test('calendar editing refuses ordinary appointments and invalid or reversed times before writing', async () => {
+  let writes = 0
+  const ordinary = { id: '123', Owner: { id: '2' }, Event_Title: 'Consultation', Start_DateTime: '2090-01-03T15:00:00Z', End_DateTime: '2090-01-03T16:00:00Z' }
+  const request = async (path, method) => { if (method) writes++; return { data: [ordinary] } }
+  await assert.rejects(changeCalendarBlock({ ...input, id: '123' }, 'update', request, members), /Only blocks/)
+  const managed = { ...ordinary, Event_Title: 'Lunch', Description: 'Managed by Dharma Forms calendar blocking v1.' }
+  await assert.rejects(changeCalendarBlock({ ...input, id: '123', end: '2090-01-03T09:00' }, 'update', async (path, method) => { if (method) writes++; return { data: [managed] } }, members), /end must be after/)
+  assert.equal(writes, 0)
+})

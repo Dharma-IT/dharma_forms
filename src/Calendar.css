@@ -61,3 +61,13 @@
 }
 
 .nutri-event { background: #e6def4; border-left: 3px solid #73539c; }
+.block-edit-button, .block-edit-actions button { padding: 10px 14px; border: 1px solid #9bb5a7; border-radius: 8px; background: white; color: #003d2b; cursor: pointer; }
+.calendar-block-form { border-top: 1px solid #d5e2da; margin-top: 20px; padding-top: 14px; }
+.calendar-block-form p { font-size: 13px; line-height: 1.6; }
+.calendar-block-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.calendar-block-form label { display: block; font-size: 13px; margin: 14px 0; }
+.calendar-block-form input { display: block; box-sizing: border-box; width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #9bb5a7; border-radius: 8px; color: #003d2b; background: white; font: inherit; }
+.block-edit-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.block-edit-actions button:first-child { background: #003d2b; color: white; }
+.block-edit-actions button:disabled { opacity: .6; cursor: wait; }
+.block-edit-error { color: #973c26; background: #fff0ec; padding: 10px; border-radius: 8px; }

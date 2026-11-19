@@ -3,18 +3,31 @@ import assert from 'node:assert/strict'
 import { planOutOfOffice, extendOutOfOffice, lunchTimes } from './out-of-office.mjs'
 
 const members = [{ team: 'sellers', id: '1' }, { team: 'customer-service', id: '2' }, { team: 'nutritionists', id: '3' }, { team: 'agents', id: '4' }]
-test('daily lunches preserve the seven requested Eastern schedules over DST and exclude agent-only Zara', () => {
-  const people = Object.keys(lunchTimes).map(id => ({ id, team: 'sellers' }))
+test('Ana and Paula block midnight to noon and 7 PM to midnight; Paula also blocks lunch', () => {
+  const people = [{ team: 'nutritionists', id: '7692472000002530168' }, { team: 'nutritionists', id: '7692472000002530238' }, { team: 'agents', id: '4' }]
+  const plan = planOutOfOffice(people, [], new Date('2026-11-20T00:00:00-05:00'))
+  assert.equal(plan.length, 366 * 5)
+  const ana = plan.filter(e => e.Owner.id === people[0].id)
+  assert.equal(ana.length, 366 * 2)
+  assert.equal(ana[0].End_DateTime, '2026-11-20T17:00:00+00:00')
+  const summer = ana.find(e => e.Start_DateTime === '2027-07-20T04:00:00+00:00')
+  assert.equal(summer.End_DateTime, '2027-07-20T16:00:00+00:00')
+  const lunch = plan.find(e => e.Owner.id === people[1].id && e.Event_Title === 'Lunch')
+  assert.equal(lunch.Start_DateTime, '2026-11-20T18:30:00+00:00')
+  assert.equal(lunch.End_DateTime, '2026-11-20T19:00:00+00:00')
+})
+test('daily lunches preserve the requested Eastern schedules over DST and exclude agent-only Zara', () => {
+  const people = Object.keys(lunchTimes).map(id => ({ id, team: id === '7692472000002530238' ? 'nutritionists' : 'sellers' }))
   people.push({ id: '7692472000002530266', team: 'agents' })
   const existing = people.map(p => ({ ownerId: p.id, title: 'Out of office', start: '2027-11-20T19:00:00-05:00' }))
   const plan = planOutOfOffice(people, existing, new Date('2026-11-20T00:00:00-05:00'))
-  assert.equal(plan.length, 7 * 366)
+  assert.equal(plan.length, 8 * 366)
   assert.ok(plan.every(e => e.Event_Title === 'Lunch' && e.Owner.id !== '7692472000002530266'))
   const aliceWinter = plan.find(e => e.Owner.id === '7692472000002530221' && e.Start_DateTime.startsWith('2026-11-20'))
   const aliceSummer = plan.find(e => e.Owner.id === '7692472000002530221' && e.Start_DateTime.startsWith('2027-07-20'))
   assert.equal(aliceWinter.Start_DateTime, '2026-11-20T19:00:00+00:00')
   assert.equal(aliceSummer.Start_DateTime, '2027-07-20T18:00:00+00:00')
-  const expectedDurations = { '7692472000002530221': 40, '7692472000002530213': 40, '7692472000002530199': 40, '7692472000002527291': 30, '7692472000002527266': 30, '7692472000002527203': 30, '7692472000002527252': 30 }
+  const expectedDurations = { '7692472000002530238': 30, '7692472000002530221': 40, '7692472000002530213': 40, '7692472000002530199': 40, '7692472000002527291': 30, '7692472000002527266': 30, '7692472000002527203': 30, '7692472000002527252': 30 }
   for (const event of plan) assert.equal((Date.parse(event.End_DateTime) - Date.parse(event.Start_DateTime)) / 60000, expectedDurations[event.Owner.id])
 })
 test('out-of-office policy covers Sellers and CS every day and keeps Eastern hours across DST', () => {

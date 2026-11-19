@@ -212,6 +212,17 @@ mapped to verified Bigin user IDs and only apply while the person belongs to
 Sellers or Customer Service. Zara remains a booking agent but is excluded from
 the Customer Service booking pool and team calendar through her team assignment.
 
+Ana Sandoval and Paula Alfonso have daily Out of office blocks from midnight
+to noon and from 7 PM to midnight, Eastern Time. Paula's daily Lunch is
+1:30–2 PM. Both nutritionists are included in the extension job.
+
+On `/calendar`, click an app-managed Out of office, Lunch, or calendar block to
+open its details. **Edit or remove block** lets a manager enter the existing
+management PIN, change the start/end date and time, or remove that occurrence.
+Changes update Bigin and refresh the calendar. Ordinary client appointments
+remain read-only. If another manager changed the block after it was opened,
+refresh before editing it. The controls require frontend and backend deployment.
+
 This supersedes the standalone PostgreSQL setup above. Run `supabase/setup.sql`
 in the Supabase SQL Editor. It creates and seeds team tables once, enables RLS,
 and grants writes only to the server's service role. Browser users deliberately

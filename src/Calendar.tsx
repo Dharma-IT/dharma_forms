@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { authenticatedFetch } from './auth'
 import './Calendar.css'
+import CalendarBlockEditor from './CalendarBlockEditor'
 
 type Person = { id: string; name: string; email: string; teams: string[] }
-type CalendarEvent = { id: string; title: string; start: string; end: string; ownerId: string; allDay: boolean; location?: string; description?: string; relatedTo?: string; participants?: { name: string; email: string; status: string }[] }
+type CalendarEvent = { id: string; title: string; start: string; end: string; ownerId: string; allDay: boolean; editableBlock?: boolean; location?: string; description?: string; relatedTo?: string; participants?: { name: string; email: string; status: string }[] }
 const teamLabels: Record<string, string> = { sellers: 'Seller', 'customer-service': 'Customer Service', nutritionists: 'Nutri' }
 const zone = 'America/New_York'
 const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -20,7 +21,7 @@ function minute(value: string, day: string) {
   const parts = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date)
   return Number(parts.find(part => part.type === 'hour')?.value) * 60 + Number(parts.find(part => part.type === 'minute')?.value)
 }
-function EventDetails({ event, owner, onClose }: { event: CalendarEvent; owner?: Person; onClose: () => void }) {
+function EventDetails({ event, owner, onClose, onChanged }: { event: CalendarEvent; owner?: Person; onClose: () => void; onChanged: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const element = dialog.current
@@ -37,9 +38,10 @@ function EventDetails({ event, owner, onClose }: { event: CalendarEvent; owner?:
         <dt>When</dt><dd>{event.allDay && <>All day<br /></>}{format.format(new Date(event.start))}<br />to {format.format(new Date(event.end))}<br />Eastern Time (America/New_York)</dd>
         <dt>Location</dt><dd>{event.location || 'No location provided'}</dd>
         {event.relatedTo && <><dt>Related to</dt><dd>{event.relatedTo}</dd></>}
-        <dt>Description</dt><dd className="event-description">{event.description || 'No description provided'}</dd>
+        <dt>Description</dt><dd className="event-description">{event.editableBlock ? 'This block makes overlapping appointment times unavailable.' : event.description || 'No description provided'}</dd>
         <dt>Participants</dt><dd>{event.participants?.length ? <ul>{event.participants.map((person, index) => <li key={index}>{person.name}{person.email && <div>{person.email}</div>}{person.status && <small>{person.status}</small>}</li>)}</ul> : 'No participants listed'}</dd>
       </dl>
+      {event.editableBlock && owner && <CalendarBlockEditor block={event} teams={owner.teams} onChanged={onChanged} />}
     </article>
   </dialog>
 }
@@ -91,7 +93,7 @@ export default function Calendar() {
         return <div className="calendar-day" key={person.id}>{groups.flatMap(group => group.map((event, index) => <button key={event.id} className={`calendar-event ${team === 'nutritionists' ? 'nutri-event' : team === 'customer-service' ? 'cs-event' : person.teams.includes('sellers') ? 'seller-event' : person.teams.includes('customer-service') ? 'cs-event' : 'nutri-event'}`} style={{ top: minute(event.start, date) * 64 / 60, height: Math.max(22, (minute(event.end, date) - minute(event.start, date)) * 64 / 60), left: `${index * 100 / group.length}%`, width: `${100 / group.length}%` }} onClick={() => setSelected(event)} title={`${event.title}\n${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}><strong>{event.title}</strong><span>{event.allDay ? 'All day' : `${timeFormat.format(new Date(event.start))} - ${timeFormat.format(new Date(event.end))}`}</span></button>))}</div>
       })}
     </div></div>}
-    {selected && <EventDetails event={selected} owner={data.people.find(person => person.id === selected.ownerId)} onClose={() => setSelected(null)} />}
+    {selected && <EventDetails key={selected.id} event={selected} owner={data.people.find(person => person.id === selected.ownerId)} onClose={() => setSelected(null)} onChanged={() => selectDate(date)} />}
   </main>
 }
 

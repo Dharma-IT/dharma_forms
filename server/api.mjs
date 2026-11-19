@@ -52,12 +52,12 @@ const server = createServer(async (req, res) => {
         if (!ownerId || !/^\d+$/.test(ownerId)) return reply(400, { error: 'Select a calendar member.' })
         return reply(200, { blocks: await listCalendarBlocks(undefined, async () => (await getMembers()).filter(member => member.id === ownerId)) })
       }
-      if (['POST', 'DELETE'].includes(req.method) && req.url === '/api/manage-team/calendar-blocks') {
+      if (['POST', 'DELETE', 'PATCH'].includes(req.method) && req.url === '/api/manage-team/calendar-blocks') {
         if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
         if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
         let raw = ''
         for await (const chunk of req) { raw += chunk; if (raw.length > 8000) return reply(413, { error: 'Request too large' }) }
-        return reply(200, { blocks: await changeCalendarBlock(JSON.parse(raw), req.method === 'DELETE') })
+        return reply(200, { blocks: await changeCalendarBlock(JSON.parse(raw), req.method === 'PATCH' ? 'update' : req.method === 'DELETE') })
       }
       if (['PUT', 'DELETE', 'PATCH'].includes(req.method) && req.url === '/api/manage-team') {
         if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })

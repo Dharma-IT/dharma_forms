@@ -7,6 +7,7 @@ const dayKey = value => dayFormat.format(new Date(value))
 const nextDay = day => new Date(Date.parse(`${day}T12:00:00Z`) + 86400000).toISOString().slice(0, 10)
 
 export const lunchTimes = {
+  '7692472000002530238': ['13:30', '14:00'], // Paula Alfonso
   '7692472000002530221': ['14:00', '14:40'], // Alice Strelow
   '7692472000002530213': ['16:00', '16:40'], // Arles Martinez
   '7692472000002530199': ['13:00', '13:40'], // Brayam Zuluaga
@@ -15,6 +16,8 @@ export const lunchTimes = {
   '7692472000002527203': ['14:30', '15:00'], // Helen Gutierrez
   '7692472000002527252': ['13:30', '14:00'], // Leonardo Lozano
 }
+const nutritionistIds = new Set(['7692472000002530168', '7692472000002530238'])
+const scheduledMember = member => ['sellers', 'customer-service'].includes(member.team) || (member.team === 'nutritionists' && nutritionistIds.has(member.id))
 
 // Extend the bookable year daily. Individual dates preserve New York wall time
 // over DST, unlike Bigin's fixed-UTC recurring event expansion.
@@ -24,9 +27,9 @@ export function planOutOfOffice(members, existing, now = new Date()) {
   horizon.setUTCFullYear(horizon.getUTCFullYear() + 1)
   const through = horizon.toISOString().slice(0, 10)
   const events = []
-  const people = [...new Map(members.filter(m => ['sellers', 'customer-service'].includes(m.team)).map(member => [member.id, member])).values()]
+  const people = [...new Map(members.filter(scheduledMember).map(member => [member.id, member])).values()]
   for (const member of people) {
-    const schedules = [{ title: 'Out of office', times: [['00:00', '10:40'], ['19:00', 'next-midnight']] }]
+    const schedules = [{ title: 'Out of office', times: [['00:00', member.team === 'nutritionists' ? '12:00' : '10:40'], ['19:00', 'next-midnight']] }]
     if (lunchTimes[member.id]) schedules.push({ title: 'Lunch', times: [lunchTimes[member.id]] })
     for (const schedule of schedules) {
       const own = existing.filter(b => b.ownerId === member.id && b.title === schedule.title)
@@ -48,7 +51,7 @@ export function planOutOfOffice(members, existing, now = new Date()) {
 }
 
 export async function extendOutOfOffice(request = biginRequest, loadMembers = getMembers, now = new Date()) {
-  const members = (await loadMembers()).filter(m => ['sellers', 'customer-service'].includes(m.team))
+  const members = (await loadMembers()).filter(scheduledMember)
   const existing = await listCalendarBlocks(request, async () => members)
   const events = planOutOfOffice(members, existing, now)
   let created = 0
