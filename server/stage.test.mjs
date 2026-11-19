@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { stageRecord, stageUpdate, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
+import { stageRecord, stageUpdate, stageLineTotal, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
 
 const metadata = { pipelines: [{ id: '10', name: 'New Leads', stages: ['Unused global stage'], fields: [
   { api_name: 'Sub_Pipeline', pick_list_values: [{ actual_value: 'Old sub', display_value: 'Sales', maps: [{ api_name: 'Stage', pick_list_values: [{ actual_value: 'PAID' }, { actual_value: 'Waiting for Payment' }] }] }] },
@@ -9,6 +9,16 @@ const metadata = { pipelines: [{ id: '10', name: 'New Leads', stages: ['Unused g
 const raw = { id: '20', Pipeline: { id: '10', name: 'New Leads' }, Sub_Pipeline: 'Sales', Stage: 'Waiting for Payment', Contact_Name: { id: '30' }, Modified_Time: '2026-11-20T10:00:00Z', Amount: 100, Installments: 6, Total_Amount_Payable: 106, Payment_Notes: 'Existing note', Payment_Method: 'Credit/Debit Card', Product: 'Existing product; Manual entry', Associated_Products: [{ id: '40', Product: { id: '50', name: 'Existing product' }, List_Price: 100, Quantity: 1, Discount: 10, Total: 90 }] }
 const catalog = [{ id: '60', name: 'New product', price: 50 }]
 const input = () => ({ id: '20', contactId: '30', version: raw.Modified_Time, stage: 'PAID', paymentNotes: 'Updated payment note', paymentMethod: 'Credit/Debit Card', installments: '12.50', addProducts: [{ id: '60', quantity: '2', price: '45.00' }], Total_Amount_Payable: 999, Amount: 999 })
+
+test('percentage discounts are carried to Bigin and line totals round fractional quantities to cents', () => {
+  const payload = stageUpdate({ ...input(), addProducts: [{ id: '60', price: '45.00', quantity: '2', discount: '10' }] }, stageRecord(raw, metadata), catalog)
+  assert.equal(payload.Associated_Products[0].Discount, 10)
+  assert.equal(stageLineTotal('45.00', '2', '10'), 81)
+  assert.equal(stageLineTotal('19.99', '1.5', '12.5'), 26.24)
+  assert.equal(stageLineTotal('0.05', '1', '50'), 0.03)
+  assert.equal(stageLineTotal('45', '2', '100'), 0)
+  for (const discount of ['-1', '100.01', 'abc', '0.001', Infinity]) assert.throws(() => stageUpdate({ ...input(), addProducts: [{ id: '60', price: '45', quantity: '2', discount }] }, stageRecord(raw, metadata), catalog), /discounts must/)
+})
 
 test('deal metadata follows its sub-pipeline stage map, exposes totals, and rejects truncated products', () => {
   const d = stageRecord(raw, metadata)

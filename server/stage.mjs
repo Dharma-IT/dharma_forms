@@ -4,6 +4,14 @@ const pending = new Set()
 const assertId = id => { if (typeof id !== 'string' || !/^\d+$/.test(id)) throw new Error('Select a valid CRM record.') }
 const choices = field => (field?.pick_list_values || []).filter(v => v.actual_value && v.actual_value !== '-None-').map(v => ({ value: v.actual_value, label: v.display_value || v.actual_value }))
 
+export function stageLineTotal(price, quantity, discount = 0) {
+  // All inputs are validated to two decimals before calling. Integer arithmetic
+  // keeps percentage discounts and fractional quantities rounded to cents.
+  const scaled = value => BigInt(String(value).split('.')[0]) * 100n + BigInt((String(value).split('.')[1] || '').padEnd(2, '0'))
+  const numerator = scaled(price) * scaled(quantity) * (10000n - scaled(discount))
+  return Number((numerator + 500000n) / 1000000n) / 100
+}
+
 export async function getStageProducts(request = biginRequest) {
   const products = []
   for (let page = 1; ; page++) {
@@ -78,7 +86,9 @@ export function stageUpdate(input, current, products) {
     ids.add(row.id)
     if (!Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0 || Number(row.quantity) > 10000 || !/^\d+(?:\.\d{1,2})?$/.test(String(row.quantity))) throw new Error('Product quantities must be positive, with at most two decimals.')
     if (!/^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$/.test(String(row.price))) throw new Error('Enter a nonnegative product price with at most two decimals.')
-    return { product, Quantity: Number(row.quantity), List_Price: Number(row.price) }
+    const discount = row.discount ?? 0
+    if (!/^\d+(?:\.\d{1,2})?$/.test(String(discount)) || Number(discount) < 0 || Number(discount) > 100) throw new Error('Product discounts must be between 0 and 100 percent, with at most two decimals.')
+    return { product, Quantity: Number(row.quantity), List_Price: Number(row.price), Discount: Number(discount) }
   })
   const payload = { id: current.id, Payment_Notes: input.paymentNotes, Installments: Number(input.installments) }
   if (input.stage !== current.stage) payload.Stage = input.stage
@@ -87,7 +97,7 @@ export function stageUpdate(input, current, products) {
     // New rows append without resending old rows or discounts. Bigin computes
     // Amount as the submitted base plus submitted product totals, so preserve
     // the current CRM Amount as the base (never trust a browser-supplied base).
-    payload.Associated_Products = additions.map(p => ({ Product: { id: p.product.id }, Quantity: p.Quantity, List_Price: p.List_Price, Discount: 0 }))
+    payload.Associated_Products = additions.map(p => ({ Product: { id: p.product.id }, Quantity: p.Quantity, List_Price: p.List_Price, Discount: p.Discount }))
     if (!Number.isFinite(Number(current.amount))) throw new Error('The current CRM amount is invalid. Review the deal in Bigin.')
     payload.Amount = Number(current.amount)
     let text = current.productText.trim().replace(/;\s*/g, ', ')
@@ -115,8 +125,8 @@ export async function updateStageDeal(input, request = biginRequest, loadMetadat
     const fresh = await getStageDeal(input.id, request, async () => metadata)
     if (fresh.stage !== input.stage || fresh.paymentNotes !== input.paymentNotes || fresh.paymentMethod !== input.paymentMethod || Number(fresh.installments) !== Number(input.installments) || (payload.Product && fresh.productText !== payload.Product) || input.addProducts.some(p => !fresh.products.some(row => row.id === p.id))) throw new Error('Bigin saved the record but some values differ. Reload it and review before retrying.')
     if (input.addProducts.length) {
-      const expected = Math.round(Number(current.amount) * 100) + input.addProducts.reduce((sum, p) => sum + Math.round(Number(p.price) * Number(p.quantity) * 100), 0)
-      if (Math.round(Number(fresh.amount) * 100) !== expected || current.products.some(p => !fresh.products.some(row => row.rowId === p.rowId && row.id === p.id && Number(row.price) === Number(p.price) && Number(row.quantity) === Number(p.quantity) && Number(row.discount) === Number(p.discount)))) throw new Error('Bigin saved unexpected product totals or changed an existing row. Reload the record and review it before retrying.')
+      const expected = Math.round(Number(current.amount) * 100) + input.addProducts.reduce((sum, p) => sum + Math.round(stageLineTotal(p.price, p.quantity, p.discount ?? 0) * 100), 0)
+      if (Math.round(Number(fresh.amount) * 100) !== expected || current.products.some(p => !fresh.products.some(row => row.rowId === p.rowId && row.id === p.id && Number(row.price) === Number(p.price) && Number(row.quantity) === Number(p.quantity) && Number(row.discount) === Number(p.discount))) || input.addProducts.some(p => !fresh.products.some(row => row.id === p.id && Number(row.price) === Number(p.price) && Number(row.quantity) === Number(p.quantity) && Number(row.discount) === Number(p.discount ?? 0)))) throw new Error('Bigin saved unexpected product totals or changed an existing row. Reload the record and review it before retrying.')
     }
     return fresh
   } finally { pending.delete(input.id) }

@@ -8,7 +8,11 @@ then change its stage, payment notes, payment method, and installment amount.
 Stages follow the selected deal's sub-pipeline; payment methods and active
 product choices come from live CRM metadata/catalog reads.
 
-Add products with a list price and quantity. Existing associated-product rows
+Choose a product to enter list price, quantity, and percentage discount before
+adding it to the selection. A read-only line total previews its discounted value.
+Pending selections can also be adjusted before saving. Discounts use Bigin's
+currently configured `Discount (%)` field and are validated from 0 to 100.
+Existing associated-product rows
 and discounts are preserved. The server carries forward the CRM Amount as the
 base so Bigin adds new product totals without dropping the existing amount. New rows
 append to the deal's Products tab. The Other Info `Product` text is synchronized
