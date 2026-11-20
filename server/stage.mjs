@@ -1,6 +1,7 @@
 import { biginRequest, getFormMetadata } from './submissions.mjs'
 
 const pending = new Set()
+const isPaidStage = stage => typeof stage === 'string' && stage.trim().toUpperCase() === 'PAID'
 const assertId = id => { if (typeof id !== 'string' || !/^\d+$/.test(id)) throw new Error('Select a valid CRM record.') }
 const choices = field => (field?.pick_list_values || []).filter(v => v.actual_value && v.actual_value !== '-None-').map(v => ({ value: v.actual_value, label: v.display_value || v.actual_value }))
 
@@ -36,7 +37,7 @@ export async function getStageClient(id, request = biginRequest) {
   const deals = []
   for (let page = 1; ; page++) {
     const result = await request(`Contacts/${id}/Pipelines?${new URLSearchParams({ fields: 'Deal_Name,Pipeline,Stage,Amount,Modified_Time', per_page: '200', page: String(page) })}`)
-    for (const d of result.data || []) if (['New Leads', 'Customer Service'].includes(d.Pipeline?.name)) deals.push({ id: d.id, name: d.Deal_Name, pipeline: d.Pipeline.name, stage: d.Stage, amount: d.Amount, modified: d.Modified_Time })
+    for (const d of result.data || []) if (['New Leads', 'Customer Service'].includes(d.Pipeline?.name)) deals.push({ id: d.id, name: d.Deal_Name, pipeline: d.Pipeline.name, stage: d.Stage, paid: isPaidStage(d.Stage), amount: d.Amount, modified: d.Modified_Time })
     if (!result.info?.more_records) break
   }
   return { client: { id: c.id, name: c.Full_Name || [c.First_Name, c.Last_Name].filter(Boolean).join(' '), email: c.Email || '', phone: c.Phone || c.Mobile || '' }, deals }
@@ -51,7 +52,7 @@ export function stageRecord(raw, metadata) {
   const field = api => pipeline.fields.find(f => f.api_name === api)
   return {
     id: raw.id, contactId: raw.Contact_Name?.id, name: raw.Deal_Name, pipeline: pipeline.name, version: raw.Modified_Time,
-    stage: raw.Stage, stages: [...new Set([raw.Stage, ...mapped].filter(Boolean))], allowedStages: mapped,
+    stage: raw.Stage, paid: isPaidStage(raw.Stage), stages: [...new Set([raw.Stage, ...mapped].filter(Boolean))], allowedStages: mapped,
     paymentNotes: raw.Payment_Notes || '', paymentNotesMax: field('Payment_Notes')?.length || 255,
     paymentMethod: raw.Payment_Method === '-None-' ? '' : raw.Payment_Method || '', paymentMethods: choices(field('Payment_Method')),
     installments: raw.Installments ?? 0, amount: raw.Amount ?? 0, totalPayable: raw.Total_Amount_Payable ?? null,
@@ -72,6 +73,7 @@ export async function getStageDeal(id, request = biginRequest, loadMetadata = ge
 }
 
 export function stageUpdate(input, current, products) {
+  if (isPaidStage(current.stage)) throw new Error('This deal is already paid and can no longer be selected or edited.')
   if (typeof input.version !== 'string' || input.version !== current.version) throw new Error('This deal changed since it was opened. Reload it before saving.')
   if (input.contactId !== current.contactId) throw new Error('The selected deal does not belong to this client.')
   if (typeof input.stage !== 'string' || (input.stage !== current.stage && !current.allowedStages.includes(input.stage))) throw new Error('Select a stage available in this deal’s sub-pipeline.')

@@ -4,7 +4,7 @@ import { authenticatedFetch } from './auth'
 import './Stage.css'
 
 type Client = { id: string; name: string; email: string; phone: string }
-type Summary = { id: string; name: string; pipeline: string; stage: string; amount: number }
+type Summary = { id: string; name: string; pipeline: string; stage: string; paid: boolean; amount: number }
 type Product = { id: string; name: string; price: number }
 type Line = Product & { quantity: number; total?: number; discount?: number; rowId?: string }
 type Deal = Summary & { contactId: string; version: string; stages: string[]; paymentNotes: string; paymentNotesMax: number; paymentMethod: string; paymentMethods: { value: string; label: string }[]; installments: number; totalPayable: number | null; productText: string; products: Line[] }
@@ -46,6 +46,7 @@ export default function Stage() {
     return () => controller.abort()
   }, [])
   function showDeal(value: Deal) {
+    if (value.paid) { setDeal(null); setAdded([]); return }
     setDeal(value); setStage(value.stage); setNotes(value.paymentNotes); setMethod(value.paymentMethod); setInstallments(String(value.installments)); setAdded([]); setProductId(''); setProductQuery(''); setDraftPrice('0'); setDraftQuantity('1'); setDraftDiscount('0')
   }
   async function search(event: FormEvent) {
@@ -65,7 +66,7 @@ export default function Stage() {
   async function selectDeal(id: string) {
     const serial = ++selection.current
     setBusy(true); setError(''); setNotice(''); setDeal(null)
-    try { const data = await api(`deals/${id}`); if (selection.current === serial) showDeal(data.deal) }
+    try { const data = await api(`deals/${id}`); if (selection.current === serial) { showDeal(data.deal); if (data.deal.paid) { setDeals(current => current.map(d => d.id === id ? { ...d, paid: true, stage: data.deal.stage } : d)); setNotice('This deal is already paid and cannot be selected.') } } }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load deal.') }
     finally { setBusy(false) }
   }
@@ -82,7 +83,7 @@ export default function Stage() {
     setBusy(true); setError(''); setNotice('')
     try {
       const data = await api(`deals/${deal.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: client.id, version: deal.version, stage, paymentNotes: notes, paymentMethod: method, installments, addProducts: added.map(p => ({ id: p.id, price: p.price, quantity: p.quantity, discount: p.discount ?? 0 })) }) })
-      showDeal(data.deal); setDeals(current => current.map(d => d.id === deal.id ? { ...d, stage: data.deal.stage, amount: data.deal.amount } : d)); setNotice('Saved to Bigin. Products, Other Info, and payment details are up to date.')
+      showDeal(data.deal); setDeals(current => current.map(d => d.id === deal.id ? { ...d, stage: data.deal.stage, paid: data.deal.paid, amount: data.deal.amount } : d)); setNotice(data.deal.paid ? 'Saved to Bigin. This deal is now paid and can no longer be selected.' : 'Saved to Bigin. Products, Other Info, and payment details are up to date.')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save. Reload the deal before retrying.') }
     finally { setBusy(false) }
   }
@@ -99,7 +100,7 @@ export default function Stage() {
     </aside><section className="stage-workspace">
       {client && <section className="stage-card"><h2>{client.name}</h2><p>{client.email} {client.phone && <> · {client.phone}</>}</p><h3>Select a deal</h3>
         {!busy && !deals.length && <p>No New Leads or Customer Service deals are linked to this client. Create or link their deal in Bigin first.</p>}
-        <div className="stage-deals">{deals.map(d => <button disabled={busy} key={d.id} aria-pressed={deal?.id === d.id} onClick={() => selectDeal(d.id)}><strong>{d.name}</strong><span>{d.pipeline} · {d.stage}</span><span>{money(d.amount)}</span></button>)}</div>
+        <div className="stage-deals">{deals.map(d => <button disabled={busy || d.paid} className={d.paid ? 'stage-paid-deal' : undefined} key={d.id} aria-pressed={deal?.id === d.id} onClick={() => selectDeal(d.id)}><strong>{d.name}</strong><span>{d.pipeline} · {d.stage}</span><span>{money(d.amount)}</span>{d.paid && <span>Paid: selection unavailable</span>}</button>)}</div>
       </section>}
       {!client && <section className="stage-card stage-empty"><h2>Select a client</h2><p>Their linked deals and product details will appear here.</p></section>}
       {deal && <form className="stage-card stage-editor" onSubmit={save}><fieldset disabled={busy}><div className="stage-deal-heading"><div><span className="stage-eyebrow">{deal.pipeline}</span><h2>{deal.name}</h2></div><button type="button" onClick={() => selectDeal(deal.id)}>Reload deal</button></div>

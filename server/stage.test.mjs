@@ -99,6 +99,24 @@ test('save verifies Bigin readback and never sends client-supplied totals or con
   assert.equal(result.totalPayable, 202.5)
   assert.equal(result.products.length, 2)
   assert.equal(writes, 1)
-  await assert.rejects(updateStageDeal(input(), request, async () => metadata, async () => catalog), /changed since/)
+  await assert.rejects(updateStageDeal(input(), request, async () => metadata, async () => catalog), /already paid/)
   assert.equal(writes, 1)
+})
+
+
+test('paid deals remain in client results but reject updates before any write', async () => {
+  const result = await getStageClient('30', async path => path === 'Contacts/30'
+    ? { data: [{ id: '30', Full_Name: 'Client' }] }
+    : { data: [{ ...raw, Stage: 'PAID' }, { ...raw, id: '21' }] })
+  assert.equal(result.deals.length, 2)
+  assert.equal(result.deals[0].paid, true)
+  assert.equal(result.deals[1].paid, false)
+  for (const stage of ['PAID', 'Paid', ' paid ']) {
+    const record = { ...raw, Stage: stage }
+    assert.equal(stageRecord(record, metadata).paid, true)
+    await assert.rejects(updateStageDeal(input(), async (path, method) => {
+      assert.notEqual(method, 'PUT')
+      return { data: [record] }
+    }, async () => metadata, async () => catalog), /already paid/)
+  }
 })

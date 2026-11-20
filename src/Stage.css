@@ -56,3 +56,5 @@
 .stage-editor-actions button { border-radius: 999px; min-width: 6rem; padding: .625rem 1.25rem; }
 @media (max-width: 60rem) { .stage-columns { grid-template-columns: minmax(0, 1fr); }.stage-workspace > .stage-card { max-width: none; } }
 @media (max-width: 32rem) { .stage-editor .stage-product-fields { grid-template-columns: minmax(0, 1fr); }.stage-dependent-fields { padding: .75rem; }.stage-editor .stage-deal-heading button { width: auto; }.stage-editor-actions { padding-top: 1rem; } }
+
+.stage-page .stage-paid-deal:disabled { opacity: 1; background: #f3f7f3; color: #617a6e; cursor: not-allowed; }
