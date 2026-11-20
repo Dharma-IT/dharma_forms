@@ -6,7 +6,7 @@ const metadata = { pipelines: [{ id: '10', name: 'New Leads', stages: ['Unused g
   { api_name: 'Sub_Pipeline', pick_list_values: [{ actual_value: 'Old sub', display_value: 'Sales', maps: [{ api_name: 'Stage', pick_list_values: [{ actual_value: 'PAID' }, { actual_value: 'Waiting for Payment' }] }] }] },
   { api_name: 'Product', length: 255 }, { api_name: 'Payment_Notes', length: 255 }, { api_name: 'Payment_Method', pick_list_values: [{ actual_value: '-None-' }, { actual_value: 'Credit/Debit Card', display_value: 'Card' }] },
 ] }] }
-const raw = { id: '20', Pipeline: { id: '10', name: 'New Leads' }, Sub_Pipeline: 'Sales', Stage: 'Waiting for Payment', Contact_Name: { id: '30' }, Modified_Time: '2026-11-20T10:00:00Z', Amount: 100, Installments: 6, Total_Amount_Payable: 106, Payment_Notes: 'Existing note', Payment_Method: 'Credit/Debit Card', Product: 'Existing product; Manual entry', Associated_Products: [{ id: '40', Product: { id: '50', name: 'Existing product' }, List_Price: 100, Quantity: 1, Discount: 10, Total: 90 }] }
+const raw = { id: '20', Pipeline: { id: '10', name: 'New Leads' }, Sub_Pipeline: 'Sales', Stage: 'Waiting for Payment', Contact_Name: { id: '30' }, Modified_Time: '2026-11-20T10:00:00Z', Created_Time: '2026-11-19T09:00:00Z', Amount: 100, Installments: 6, Total_Amount_Payable: 106, Payment_Notes: 'Existing note', Payment_Method: 'Credit/Debit Card', Product: 'Existing product; Manual entry', Associated_Products: [{ id: '40', Product: { id: '50', name: 'Existing product' }, List_Price: 100, Quantity: 1, Discount: 10, Total: 90 }] }
 const catalog = [{ id: '60', name: 'New product', price: 50 }]
 const input = () => ({ id: '20', contactId: '30', version: raw.Modified_Time, stage: 'PAID', paymentNotes: 'Updated payment note', paymentMethod: 'Credit/Debit Card', installments: '12.50', addProducts: [{ id: '60', quantity: '2', price: '45.00' }], Total_Amount_Payable: 999, Amount: 999 })
 
@@ -24,6 +24,7 @@ test('deal metadata follows its sub-pipeline stage map, exposes totals, and reje
   const d = stageRecord(raw, metadata)
   assert.deepEqual(d.allowedStages, ['PAID', 'Waiting for Payment'])
   assert.equal(d.totalPayable, 106)
+  assert.equal(d.createdTime, raw.Created_Time)
   assert.equal(d.products[0].discount, 10)
   assert.throws(() => stageRecord({ ...raw, $has_more: { Associated_Products: true } }, metadata), /preserve all rows/)
 })
@@ -110,6 +111,7 @@ test('paid deals remain in client results but reject updates before any write', 
     : { data: [{ ...raw, Stage: 'PAID' }, { ...raw, id: '21' }] })
   assert.equal(result.deals.length, 2)
   assert.equal(result.deals[0].paid, true)
+  assert.equal(result.deals[0].createdTime, raw.Created_Time)
   assert.equal(result.deals[1].paid, false)
   for (const stage of ['PAID', 'Paid', ' paid ']) {
     const record = { ...raw, Stage: stage }

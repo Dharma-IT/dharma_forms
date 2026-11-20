@@ -4,10 +4,12 @@ import { authenticatedFetch } from './auth'
 import './Stage.css'
 
 type Client = { id: string; name: string; email: string; phone: string }
-type Summary = { id: string; name: string; pipeline: string; stage: string; paid: boolean; paidDate: string | null; amount: number }
+type Summary = { id: string; name: string; pipeline: string; stage: string; paid: boolean; paidDate: string | null; createdTime: string | null; owner: { id: string; name: string }; amount: number }
 type Product = { id: string; name: string; price: number }
 type Line = Product & { quantity: number; total?: number; discount?: number; rowId?: string }
 type Deal = Summary & { owner: { id: string; name: string }; contactId: string; version: string; stages: string[]; paymentNotes: string; paymentNotesMax: number; paymentMethod: string; paymentMethods: { value: string; label: string }[]; installments: number; totalPayable: number | null; productText: string; products: Line[] }
+const createdDate = (value: string | null) => value && !Number.isNaN(Date.parse(value)) ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(new Date(value)) : 'Not available'
+const dealCategory = (value: Summary) => /^sellers?\b/i.test(value.name) ? 'Sellers' : /^CS\b/i.test(value.name) ? 'Customer Service' : value.pipeline
 const money = (value: number | null) => value === null ? 'Unavailable' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 const lineTotal = (price: number, quantity: number, discount: number) => Number.isFinite(price + quantity + discount) && price >= 0 && quantity > 0 && discount >= 0 && discount <= 100 ? Math.round((price * quantity * (1 - discount / 100) + Number.EPSILON) * 100) / 100 : null
 async function api(path: string, init?: RequestInit) {
@@ -69,7 +71,7 @@ export default function Stage() {
   async function selectDeal(id: string) {
     const serial = ++selection.current
     setBusy(true); setError(''); setNotice(''); setDeal(null)
-    try { const data = await api(`deals/${id}`); if (selection.current === serial) { showDeal(data.deal); if (data.deal.paid) { setDeals(current => current.map(d => d.id === id ? { ...d, paid: true, stage: data.deal.stage } : d)); setNotice('This deal is already paid and cannot be selected.') } } }
+    try { const data = await api(`deals/${id}`); if (selection.current === serial) { showDeal(data.deal); if (data.deal.paid) { setDeals(current => current.map(d => d.id === id ? { ...d, paid: true, stage: data.deal.stage, owner: data.deal.owner } : d)); setNotice('This deal is already paid and cannot be selected.') } } }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load deal.') }
     finally { setBusy(false) }
   }
@@ -78,7 +80,7 @@ export default function Stage() {
     try {
       const [data, people] = await Promise.all([api(`deals/${id}`), api('users')])
       if (data.deal.paid) {
-        setDeals(current => current.map(d => d.id === id ? { ...d, paid: true, stage: data.deal.stage } : d))
+        setDeals(current => current.map(d => d.id === id ? { ...d, paid: true, stage: data.deal.stage, owner: data.deal.owner } : d))
         setNotice('This deal is already paid and its owner cannot be changed.')
         return
       }
@@ -93,7 +95,7 @@ export default function Stage() {
     try {
       const data = await api(`deals/${ownerTarget.id}/owner`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: client.id, version: ownerTarget.version, ownerId }) })
       setDeal(current => current && current.id === data.deal.id ? (data.deal.paid ? null : { ...current, version: data.deal.version, owner: data.deal.owner }) : current)
-      setDeals(current => current.map(d => d.id === data.deal.id ? { ...d, paid: data.deal.paid, stage: data.deal.stage } : d))
+      setDeals(current => current.map(d => d.id === data.deal.id ? { ...d, paid: data.deal.paid, stage: data.deal.stage, owner: data.deal.owner } : d))
       setOwnerTarget(null); setNotice(`Deal owner changed to ${data.deal.owner.name || ownerUsers.find(u => u.id === ownerId)?.name || 'the selected user'}.`)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not change the deal owner.') }
     finally { setBusy(false) }
@@ -129,7 +131,16 @@ export default function Stage() {
     </aside><section className="stage-workspace">
       {client && <section className="stage-card"><h2>{client.name}</h2><p>{client.email} {client.phone && <> · {client.phone}</>}</p><h3>Select a deal</h3>
         {!busy && !deals.length && <p>No New Leads or Customer Service deals are linked to this client. Create or link their deal in Bigin first.</p>}
-        <div className="stage-deals">{deals.map(d => <div className="stage-deal-option" key={d.id}><button disabled={busy || d.paid} className={d.paid ? 'stage-paid-deal' : undefined} aria-pressed={deal?.id === d.id} onClick={() => selectDeal(d.id)}><strong>{d.name}</strong><span>{d.pipeline} · {d.stage}</span><span>{money(d.amount)}</span>{d.paid && <span>Paid{d.paidDate ? ` on ${d.paidDate}` : ''}: selection unavailable</span>}</button><button type="button" disabled={busy || d.paid} onClick={() => openOwnerChange(d.id)}>Change Deal Owner</button></div>)}</div>
+        <div className="stage-deals">{deals.map(d => <article className={`stage-deal-option${d.paid ? ' is-paid' : ''}${deal?.id === d.id ? ' is-selected' : ''}`} key={d.id}>
+          <button disabled={busy || d.paid} className={`stage-deal-select${d.paid ? ' stage-paid-deal' : ''}`} aria-pressed={deal?.id === d.id} onClick={() => selectDeal(d.id)}>
+            <span className="stage-deal-topline"><span className={`stage-category${dealCategory(d) === 'Sellers' ? ' stage-category-sales' : ''}`}>{dealCategory(d)}</span><span className={`stage-status${d.paid ? ' status-paid' : d.stage?.toUpperCase() === 'LOST' ? ' status-lost' : ''}`}>{d.stage}</span></span>
+            <strong className="stage-deal-title">{d.name}</strong><span className="stage-deal-pipeline">{d.pipeline}</span>
+            <span className="stage-deal-value"><span className="stage-meta-label">DEAL VALUE</span><span>{d.amount == null ? 'Not set' : money(d.amount)}</span></span>
+            <span className="stage-deal-owner"><span className="stage-owner-avatar" aria-hidden="true">{d.owner?.name?.slice(0, 1) || '-'}</span><span><span className="stage-meta-label">DEAL OWNER</span><span>{d.owner?.name || 'Not available'}</span></span></span>
+            <span className="stage-created"><span className="stage-meta-label">CREATED &middot; EASTERN TIME</span><time dateTime={d.createdTime || undefined}>{createdDate(d.createdTime)}</time></span>
+            {d.paid && <span className="stage-paid-caption">Paid{d.paidDate ? ` on ${d.paidDate}` : ''} &middot; Locked</span>}
+          </button><button className="stage-change-owner" type="button" disabled={busy || d.paid} onClick={() => openOwnerChange(d.id)}>Change Deal Owner <span aria-hidden="true">&#8599;</span></button>
+        </article>)}</div>
       </section>}
       {ownerTarget && <form className="stage-card" onSubmit={saveOwner}><h2>Change Deal Owner</h2><p>{ownerTarget.name}</p><p>Current owner: {ownerTarget.owner.name || 'Unavailable'}</p><label>New deal owner<select required disabled={busy} value={ownerId} onChange={e => setOwnerId(e.target.value)}><option value="">Select a Bigin user</option>{ownerUsers.map(user => <option key={user.id} value={user.id}>{user.name}{user.email ? ` (${user.email})` : ''}</option>)}</select></label><div className="stage-owner-actions"><button className="stage-primary" disabled={busy || !ownerId || ownerId === ownerTarget.owner.id}>Save owner</button><button type="button" disabled={busy} onClick={() => setOwnerTarget(null)}>Cancel</button></div></form>}
       {!client && <section className="stage-card stage-empty"><div className="stage-empty-icon" aria-hidden="true">&#8599;</div><span className="stage-eyebrow">READY WHEN YOU ARE</span><h2>Select a client</h2><p>Their linked deals and product details will appear here.</p></section>}

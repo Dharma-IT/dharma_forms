@@ -124,3 +124,37 @@
 @media (max-width: 60rem) { .stage-columns { grid-template-columns: minmax(0, 1fr); }.stage-header-art { width: 14rem; margin-right: 0; }.stage-art-core { inset: 3.5rem 3rem; }.stage-art-chip { font-size: .6rem; padding: .6rem; } }
 @media (max-width: 42rem) { .stage-header-art { display: none; }.stage-header { min-height: auto; border-radius: 1.25rem; }.stage-progress { gap: .6rem 1rem; }.stage-step { font-size: .65rem; }.stage-step b { width: 1.5rem; height: 1.5rem; }.stage-search { padding: 1rem; }.stage-dependent-fields { padding: .85rem; } }
 @media (prefers-reduced-motion: reduce) { .stage-page *, .stage-page *::before, .stage-page *::after { animation: none !important; transition: none !important; } }
+/* Distinct deal cards with editorial titles and boxed team labels. */
+.stage-page { font-family: 'DM Sans', sans-serif; }
+.stage-card > h2, .stage-section-heading h2, .stage-editor .stage-deal-heading h2 { font-family: Georgia, 'Times New Roman', serif; font-weight: 500; font-size: 1.9rem; letter-spacing: -.035em; }
+.stage-card > h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .16em; color: #6a7c70; }
+.stage-deals { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: 1.25rem; }
+.stage-deal-option { display: flex; flex-direction: column; gap: 0; overflow: hidden; border: 1px solid #d6e2d9; border-radius: 1.15rem; background: #fff; box-shadow: 0 8px 22px -14px #003d2b35; transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+.stage-deal-option:not(.is-paid):hover { transform: translateY(-4px); box-shadow: 0 16px 30px -16px #003d2b45; border-color: #9abbab; }
+.stage-deal-option.is-selected { border-color: #35745a; box-shadow: 0 0 0 2px #35745a20, 0 12px 24px -14px #003d2b40; }
+.stage-deal-option > .stage-deal-select { flex: 1; min-height: 0; border: 0; border-radius: 0; padding: 1.25rem; background: linear-gradient(150deg, #fff, #f4f8f2); box-shadow: none; }
+.stage-deal-option > .stage-deal-select:not(:disabled):hover { transform: none; box-shadow: none; }
+.stage-deal-option .stage-deal-select[aria-pressed=true] { background: linear-gradient(150deg, #eff8ef, #fffaf0); box-shadow: inset 0 3px #35745a; }
+.stage-deals .stage-deal-topline { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 0 0 1.2rem; }
+.stage-deals .stage-category { display: inline-flex; padding: .45rem .65rem; border: 1px solid #c4d7d9; border-radius: .4rem; background: #eaf2f4; color: #285568; font-size: .63rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 0; }
+.stage-deals .stage-category-sales { background: #143f33; border-color: #143f33; color: #f5e0aa; }
+.stage-deals .stage-status { display: inline-flex; padding: .35rem .55rem; border-radius: 999px; background: #f3ead5; color: #735724; font-size: .6rem; line-height: 1.4; font-weight: 600; margin: 0; }
+.stage-deals .status-paid { background: #dfeae1; color: #3e6550; }.stage-deals .status-lost { background: #f6e3df; color: #8d4b3f; }
+.stage-deals .stage-deal-title { font-family: Georgia, 'Times New Roman', serif; font-weight: 500; font-size: 1.65rem; letter-spacing: -.035em; line-height: 1.2; color: #133f32; }
+.stage-deals .stage-deal-pipeline { color: #698072; font-size: .72rem !important; font-weight: 400 !important; margin-top: .5rem !important; }
+.stage-deals .stage-deal-value { margin: 1.2rem 0; padding-bottom: 1rem; border-bottom: 1px solid #dce5da; }
+.stage-deals .stage-meta-label { font-family: 'DM Sans', sans-serif; font-size: .56rem; color: #6f7e72; font-weight: 600; letter-spacing: .12em; margin: 0 0 .35rem; }
+.stage-deal-value > span:last-child { font-size: 1.6rem; font-weight: 650; letter-spacing: -.04em; font-variant-numeric: tabular-nums; color: #204d39; }
+.stage-deals .stage-deal-owner { display: flex; align-items: center; gap: .65rem; margin: 0 0 1rem; }
+.stage-deals .stage-owner-avatar { display: grid; place-items: center; flex-shrink: 0; width: 2.2rem; height: 2.2rem; margin: 0; border-radius: .7rem; background: #eee5d1; border: 1px solid #e1d2af; color: #705b30; font-family: Georgia, serif; font-size: 1.1rem; }
+.stage-deal-owner > span:last-child > span:last-child { font-size: .8rem; font-weight: 550; margin: 0; }
+.stage-deals .stage-created { margin: 0; padding-top: .8rem; border-top: 1px dashed #d4ded1; }
+.stage-created time { display: block; font-size: .72rem; color: #4b6655; line-height: 1.5; }
+.stage-deal-option > .stage-change-owner { flex: none; display: flex; align-items: center; justify-content: space-between; border: 0; border-top: 1px solid #e4ddc8; border-radius: 0; padding: .85rem 1.25rem; background: #faf5e9; color: #775b27; font-size: .72rem; font-weight: 600; }
+.stage-change-owner > span { margin: 0; font-size: 1rem; }
+.stage-deal-option > .stage-change-owner:not(:disabled):hover { transform: none; background: #f1e6cd; box-shadow: none; }
+.stage-deal-option.is-paid { box-shadow: none; border-style: dashed; }
+.stage-deal-option.is-paid > .stage-paid-deal:disabled { background: #eff2ed; border: 0; }
+.stage-deal-option.is-paid .stage-category, .stage-deal-option.is-paid .stage-owner-avatar { filter: saturate(.35); }
+.stage-deals .stage-paid-caption { margin-top: .9rem; font-size: .65rem; color: #536c59; }
+@media (prefers-reduced-motion: reduce) { .stage-deal-option { transition: none; }.stage-deal-option:not(.is-paid):hover { transform: none; } }
