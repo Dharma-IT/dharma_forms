@@ -67,3 +67,16 @@
   .summary { padding: .875rem; }
   .summary > button { margin-left: 0; }
 }
+/* Give the hosted calendar the full workspace for readable booking controls. */
+.booking-layout.calendar-layout { max-width: 110rem; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; padding-top: 1.5rem; }
+.calendar-layout .intro { position: static; display: none; }
+.calendar-layout .form-panel { width: 100%; padding: clamp(1rem, 2vw, 2rem); }
+.calendar-layout .booking-frame { width: 100%; height: max(900px, 85vh); border: 1px solid #d5e2da; border-radius: 1rem; background: white; }
+.booking-timezone-note { font-size: 1rem; line-height: 1.7; padding: 1.25rem; border: 1px solid #dfcd9d; background: #fffaf0; border-radius: .85rem; }
+.booking-timezone-note strong { font-size: 1.125rem; color: #003d2b; }
+.booking-calendar-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0 1rem; }
+.booking-calendar-toolbar strong, .booking-calendar-toolbar span { display: block; }
+.booking-calendar-toolbar strong { font-size: 1.1rem; }
+.booking-calendar-toolbar span { margin-top: .4rem; font-size: .9rem; color: #617a6e; }
+.booking-calendar-toolbar a { padding: .8rem 1.1rem; background: #003d2b; border-radius: 999px; color: white; text-decoration: none; font-size: .9rem; }
+@media (max-width: 48rem) { .booking-layout.calendar-layout { padding: .75rem; }.booking-calendar-toolbar a { width: 100%; text-align: center; } }
