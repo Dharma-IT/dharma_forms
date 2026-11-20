@@ -4,10 +4,10 @@ import { authenticatedFetch } from './auth'
 import './Stage.css'
 
 type Client = { id: string; name: string; email: string; phone: string }
-type Summary = { id: string; name: string; pipeline: string; stage: string; paid: boolean; amount: number }
+type Summary = { id: string; name: string; pipeline: string; stage: string; paid: boolean; paidDate: string | null; amount: number }
 type Product = { id: string; name: string; price: number }
 type Line = Product & { quantity: number; total?: number; discount?: number; rowId?: string }
-type Deal = Summary & { contactId: string; version: string; stages: string[]; paymentNotes: string; paymentNotesMax: number; paymentMethod: string; paymentMethods: { value: string; label: string }[]; installments: number; totalPayable: number | null; productText: string; products: Line[] }
+type Deal = Summary & { owner: { id: string; name: string }; contactId: string; version: string; stages: string[]; paymentNotes: string; paymentNotesMax: number; paymentMethod: string; paymentMethods: { value: string; label: string }[]; installments: number; totalPayable: number | null; productText: string; products: Line[] }
 const money = (value: number | null) => value === null ? 'Unavailable' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 const lineTotal = (price: number, quantity: number, discount: number) => Number.isFinite(price + quantity + discount) && price >= 0 && quantity > 0 && discount >= 0 && discount <= 100 ? Math.round((price * quantity * (1 - discount / 100) + Number.EPSILON) * 100) / 100 : null
 async function api(path: string, init?: RequestInit) {
@@ -25,6 +25,9 @@ export default function Stage() {
   const [client, setClient] = useState<Client | null>(null)
   const [deals, setDeals] = useState<Summary[]>([])
   const [deal, setDeal] = useState<Deal | null>(null)
+  const [ownerTarget, setOwnerTarget] = useState<Deal | null>(null)
+  const [ownerUsers, setOwnerUsers] = useState<{ id: string; name: string; email: string }[]>([])
+  const [ownerId, setOwnerId] = useState('')
   const [products, setProducts] = useState<Product[]>([])
   const [productId, setProductId] = useState('')
   const [productQuery, setProductQuery] = useState('')
@@ -51,14 +54,14 @@ export default function Stage() {
   }
   async function search(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(''); setNotice(''); selection.current++
-    setClient(null); setDeal(null); setDeals([]); setClients([]); setSearched(false)
+    setOwnerTarget(null); setClient(null); setDeal(null); setDeals([]); setClients([]); setSearched(false)
     try { const data = await api(`search?${new URLSearchParams({ q: query.trim() })}`); setClients(data.clients); setMore(data.more); setSearched(true) }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Search failed.') }
     finally { setBusy(false) }
   }
   async function selectClient(value: Client) {
     const serial = ++selection.current
-    setBusy(true); setError(''); setNotice(''); setDeal(null); setDeals([]); setClient(value)
+    setBusy(true); setError(''); setNotice(''); setOwnerTarget(null); setDeal(null); setDeals([]); setClient(value)
     try { const data = await api(`clients/${value.id}`); if (selection.current === serial) { setClient(data.client); setDeals(data.deals) } }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load client deals.') }
     finally { setBusy(false) }
@@ -68,6 +71,31 @@ export default function Stage() {
     setBusy(true); setError(''); setNotice(''); setDeal(null)
     try { const data = await api(`deals/${id}`); if (selection.current === serial) { showDeal(data.deal); if (data.deal.paid) { setDeals(current => current.map(d => d.id === id ? { ...d, paid: true, stage: data.deal.stage } : d)); setNotice('This deal is already paid and cannot be selected.') } } }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load deal.') }
+    finally { setBusy(false) }
+  }
+  async function openOwnerChange(id: string) {
+    setBusy(true); setError(''); setNotice(''); setOwnerTarget(null)
+    try {
+      const [data, people] = await Promise.all([api(`deals/${id}`), api('users')])
+      if (data.deal.paid) {
+        setDeals(current => current.map(d => d.id === id ? { ...d, paid: true, stage: data.deal.stage } : d))
+        setNotice('This deal is already paid and its owner cannot be changed.')
+        return
+      }
+      setOwnerUsers(people.users); setOwnerId(data.deal.owner.id); setOwnerTarget(data.deal)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load deal owners.') }
+    finally { setBusy(false) }
+  }
+  async function saveOwner(event: FormEvent) {
+    event.preventDefault()
+    if (!ownerTarget || !client || busy) return
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const data = await api(`deals/${ownerTarget.id}/owner`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: client.id, version: ownerTarget.version, ownerId }) })
+      setDeal(current => current && current.id === data.deal.id ? (data.deal.paid ? null : { ...current, version: data.deal.version, owner: data.deal.owner }) : current)
+      setDeals(current => current.map(d => d.id === data.deal.id ? { ...d, paid: data.deal.paid, stage: data.deal.stage } : d))
+      setOwnerTarget(null); setNotice(`Deal owner changed to ${data.deal.owner.name || ownerUsers.find(u => u.id === ownerId)?.name || 'the selected user'}.`)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not change the deal owner.') }
     finally { setBusy(false) }
   }
   function addProduct() {
@@ -83,7 +111,7 @@ export default function Stage() {
     setBusy(true); setError(''); setNotice('')
     try {
       const data = await api(`deals/${deal.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: client.id, version: deal.version, stage, paymentNotes: notes, paymentMethod: method, installments, addProducts: added.map(p => ({ id: p.id, price: p.price, quantity: p.quantity, discount: p.discount ?? 0 })) }) })
-      showDeal(data.deal); setDeals(current => current.map(d => d.id === deal.id ? { ...d, stage: data.deal.stage, paid: data.deal.paid, amount: data.deal.amount } : d)); setNotice(data.deal.paid ? 'Saved to Bigin. This deal is now paid and can no longer be selected.' : 'Saved to Bigin. Products, Other Info, and payment details are up to date.')
+      showDeal(data.deal); setDeals(current => current.map(d => d.id === deal.id ? { ...d, stage: data.deal.stage, paid: data.deal.paid, paidDate: data.deal.paidDate, amount: data.deal.amount } : d)); setNotice(data.deal.paid ? 'Saved to Bigin. This deal is now paid and can no longer be selected.' : 'Saved to Bigin. Products, Other Info, and payment details are up to date.')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save. Reload the deal before retrying.') }
     finally { setBusy(false) }
   }
@@ -100,8 +128,9 @@ export default function Stage() {
     </aside><section className="stage-workspace">
       {client && <section className="stage-card"><h2>{client.name}</h2><p>{client.email} {client.phone && <> · {client.phone}</>}</p><h3>Select a deal</h3>
         {!busy && !deals.length && <p>No New Leads or Customer Service deals are linked to this client. Create or link their deal in Bigin first.</p>}
-        <div className="stage-deals">{deals.map(d => <button disabled={busy || d.paid} className={d.paid ? 'stage-paid-deal' : undefined} key={d.id} aria-pressed={deal?.id === d.id} onClick={() => selectDeal(d.id)}><strong>{d.name}</strong><span>{d.pipeline} · {d.stage}</span><span>{money(d.amount)}</span>{d.paid && <span>Paid: selection unavailable</span>}</button>)}</div>
+        <div className="stage-deals">{deals.map(d => <div className="stage-deal-option" key={d.id}><button disabled={busy || d.paid} className={d.paid ? 'stage-paid-deal' : undefined} aria-pressed={deal?.id === d.id} onClick={() => selectDeal(d.id)}><strong>{d.name}</strong><span>{d.pipeline} · {d.stage}</span><span>{money(d.amount)}</span>{d.paid && <span>Paid{d.paidDate ? ` on ${d.paidDate}` : ''}: selection unavailable</span>}</button><button type="button" disabled={busy || d.paid} onClick={() => openOwnerChange(d.id)}>Change Deal Owner</button></div>)}</div>
       </section>}
+      {ownerTarget && <form className="stage-card" onSubmit={saveOwner}><h2>Change Deal Owner</h2><p>{ownerTarget.name}</p><p>Current owner: {ownerTarget.owner.name || 'Unavailable'}</p><label>New deal owner<select required disabled={busy} value={ownerId} onChange={e => setOwnerId(e.target.value)}><option value="">Select a Bigin user</option>{ownerUsers.map(user => <option key={user.id} value={user.id}>{user.name}{user.email ? ` (${user.email})` : ''}</option>)}</select></label><div className="stage-owner-actions"><button className="stage-primary" disabled={busy || !ownerId || ownerId === ownerTarget.owner.id}>Save owner</button><button type="button" disabled={busy} onClick={() => setOwnerTarget(null)}>Cancel</button></div></form>}
       {!client && <section className="stage-card stage-empty"><h2>Select a client</h2><p>Their linked deals and product details will appear here.</p></section>}
       {deal && <form className="stage-card stage-editor" onSubmit={save}><fieldset disabled={busy}><div className="stage-deal-heading"><div><span className="stage-eyebrow">{deal.pipeline}</span><h2>{deal.name}</h2></div><button type="button" onClick={() => selectDeal(deal.id)}>Reload deal</button></div>
         <p className="stage-editor-intro">Update the stage, then review the products and payment details below.</p>

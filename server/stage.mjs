@@ -1,4 +1,5 @@
 import { biginRequest, getFormMetadata } from './submissions.mjs'
+import { getBiginUsers } from './teams.mjs'
 
 const pending = new Set()
 const isPaidStage = stage => typeof stage === 'string' && stage.trim().toUpperCase() === 'PAID'
@@ -36,8 +37,8 @@ export async function getStageClient(id, request = biginRequest) {
   if (!c) throw new Error('This client no longer exists.')
   const deals = []
   for (let page = 1; ; page++) {
-    const result = await request(`Contacts/${id}/Pipelines?${new URLSearchParams({ fields: 'Deal_Name,Pipeline,Stage,Amount,Modified_Time', per_page: '200', page: String(page) })}`)
-    for (const d of result.data || []) if (['New Leads', 'Customer Service'].includes(d.Pipeline?.name)) deals.push({ id: d.id, name: d.Deal_Name, pipeline: d.Pipeline.name, stage: d.Stage, paid: isPaidStage(d.Stage), amount: d.Amount, modified: d.Modified_Time })
+    const result = await request(`Contacts/${id}/Pipelines?${new URLSearchParams({ fields: 'Deal_Name,Pipeline,Stage,Amount,Modified_Time,Paid_Date', per_page: '200', page: String(page) })}`)
+    for (const d of result.data || []) if (['New Leads', 'Customer Service'].includes(d.Pipeline?.name)) deals.push({ id: d.id, name: d.Deal_Name, pipeline: d.Pipeline.name, stage: d.Stage, paid: isPaidStage(d.Stage), paidDate: d.Paid_Date || null, amount: d.Amount, modified: d.Modified_Time })
     if (!result.info?.more_records) break
   }
   return { client: { id: c.id, name: c.Full_Name || [c.First_Name, c.Last_Name].filter(Boolean).join(' '), email: c.Email || '', phone: c.Phone || c.Mobile || '' }, deals }
@@ -52,10 +53,12 @@ export function stageRecord(raw, metadata) {
   const field = api => pipeline.fields.find(f => f.api_name === api)
   return {
     id: raw.id, contactId: raw.Contact_Name?.id, name: raw.Deal_Name, pipeline: pipeline.name, version: raw.Modified_Time,
+    owner: { id: raw.Owner?.id || '', name: raw.Owner?.name || '' },
     stage: raw.Stage, paid: isPaidStage(raw.Stage), stages: [...new Set([raw.Stage, ...mapped].filter(Boolean))], allowedStages: mapped,
     paymentNotes: raw.Payment_Notes || '', paymentNotesMax: field('Payment_Notes')?.length || 255,
     paymentMethod: raw.Payment_Method === '-None-' ? '' : raw.Payment_Method || '', paymentMethods: choices(field('Payment_Method')),
     installments: raw.Installments ?? 0, amount: raw.Amount ?? 0, totalPayable: raw.Total_Amount_Payable ?? null,
+    paidDate: raw.Paid_Date || null,
     productText: raw.Product || '', productTextMax: field('Product')?.length || 255,
     products: (raw.Associated_Products || []).map(p => ({ rowId: p.id, id: p.Product?.id, name: p.Product?.name || p.Product?.Product_Name || '', price: p.List_Price ?? 0, quantity: p.Quantity ?? 1, discount: p.Discount ?? 0, total: p.Total ?? 0 })),
   }
@@ -72,7 +75,7 @@ export async function getStageDeal(id, request = biginRequest, loadMetadata = ge
   return deal
 }
 
-export function stageUpdate(input, current, products) {
+export function stageUpdate(input, current, products, now = new Date()) {
   if (isPaidStage(current.stage)) throw new Error('This deal is already paid and can no longer be selected or edited.')
   if (typeof input.version !== 'string' || input.version !== current.version) throw new Error('This deal changed since it was opened. Reload it before saving.')
   if (input.contactId !== current.contactId) throw new Error('The selected deal does not belong to this client.')
@@ -94,6 +97,11 @@ export function stageUpdate(input, current, products) {
   })
   const payload = { id: current.id, Payment_Notes: input.paymentNotes, Installments: Number(input.installments) }
   if (input.stage !== current.stage) payload.Stage = input.stage
+  if (isPaidStage(input.stage)) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+    const part = type => parts.find(value => value.type === type).value
+    payload.Paid_Date = `${part('year')}-${part('month')}-${part('day')}`
+  }
   if (input.paymentMethod !== current.paymentMethod) payload.Payment_Method = input.paymentMethod || null
   if (additions.length) {
     // New rows append without resending old rows or discounts. Bigin computes
@@ -125,11 +133,31 @@ export async function updateStageDeal(input, request = biginRequest, loadMetadat
     const saved = await request('Pipelines', 'PUT', { data: [payload], trigger: [] })
     if (saved.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin did not confirm this update. Reload the deal before retrying.')
     const fresh = await getStageDeal(input.id, request, async () => metadata)
+    if (payload.Paid_Date && fresh.paidDate !== payload.Paid_Date) throw new Error('Bigin saved the record but the Paid Date differs. Review the deal in Bigin before retrying.')
     if (fresh.stage !== input.stage || fresh.paymentNotes !== input.paymentNotes || fresh.paymentMethod !== input.paymentMethod || Number(fresh.installments) !== Number(input.installments) || (payload.Product && fresh.productText !== payload.Product) || input.addProducts.some(p => !fresh.products.some(row => row.id === p.id))) throw new Error('Bigin saved the record but some values differ. Reload it and review before retrying.')
     if (input.addProducts.length) {
       const expected = Math.round(Number(current.amount) * 100) + input.addProducts.reduce((sum, p) => sum + Math.round(stageLineTotal(p.price, p.quantity, p.discount ?? 0) * 100), 0)
       if (Math.round(Number(fresh.amount) * 100) !== expected || current.products.some(p => !fresh.products.some(row => row.rowId === p.rowId && row.id === p.id && Number(row.price) === Number(p.price) && Number(row.quantity) === Number(p.quantity) && Number(row.discount) === Number(p.discount))) || input.addProducts.some(p => !fresh.products.some(row => row.id === p.id && Number(row.price) === Number(p.price) && Number(row.quantity) === Number(p.quantity) && Number(row.discount) === Number(p.discount ?? 0)))) throw new Error('Bigin saved unexpected product totals or changed an existing row. Reload the record and review it before retrying.')
     }
+    return fresh
+  } finally { pending.delete(input.id) }
+}
+
+export async function changeStageDealOwner(input, request = biginRequest, loadMetadata = getFormMetadata, loadUsers = getBiginUsers) {
+  assertId(input.id)
+  assertId(input.ownerId)
+  if (pending.has(input.id)) throw new Error('This deal is already being saved. Wait, then reload it.')
+  pending.add(input.id)
+  try {
+    const [current, users] = await Promise.all([getStageDeal(input.id, request, loadMetadata), loadUsers(request)])
+    if (current.paid) throw new Error('This deal is already paid and its owner cannot be changed.')
+    if (input.contactId !== current.contactId) throw new Error('The selected deal does not belong to this client.')
+    if (typeof input.version !== 'string' || input.version !== current.version) throw new Error('This deal changed since it was opened. Reload it before changing its owner.')
+    if (!users.some(user => user.id === input.ownerId)) throw new Error('Select an active Bigin user.')
+    const saved = await request('Pipelines', 'PUT', { data: [{ id: input.id, Owner: { id: input.ownerId } }], trigger: [] })
+    if (saved.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin did not confirm the owner change. Reload the deal before retrying.')
+    const fresh = await getStageDeal(input.id, request, loadMetadata)
+    if (fresh.owner.id !== input.ownerId) throw new Error('Bigin returned a different owner. Reload the deal and review before retrying.')
     return fresh
   } finally { pending.delete(input.id) }
 }

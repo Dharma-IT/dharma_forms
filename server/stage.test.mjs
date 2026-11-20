@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { stageRecord, stageUpdate, stageLineTotal, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
+import { changeStageDealOwner, stageRecord, stageUpdate, stageLineTotal, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
 
 const metadata = { pipelines: [{ id: '10', name: 'New Leads', stages: ['Unused global stage'], fields: [
   { api_name: 'Sub_Pipeline', pick_list_values: [{ actual_value: 'Old sub', display_value: 'Sales', maps: [{ api_name: 'Stage', pick_list_values: [{ actual_value: 'PAID' }, { actual_value: 'Waiting for Payment' }] }] }] },
@@ -119,4 +119,61 @@ test('paid deals remain in client results but reject updates before any write', 
       return { data: [record] }
     }, async () => metadata, async () => catalog), /already paid/)
   }
+})
+
+
+test('ownership changes write only the deal owner and verify Bigin readback', async () => {
+  let record = { ...raw, Owner: { id: '70', name: 'Original' } }
+  let writes = 0
+  const updated = await changeStageDealOwner({ ...input(), ownerId: '80', stage: 'PAID' }, async (path, method, body) => {
+    if (method === 'PUT') {
+      writes++
+      assert.deepEqual(body, { data: [{ id: '20', Owner: { id: '80' } }], trigger: [] })
+      record = { ...record, Owner: { id: '80', name: 'New owner' } }
+      return { data: [{ code: 'SUCCESS' }] }
+    }
+    return { data: [record] }
+  }, async () => metadata, async () => [{ id: '80', name: 'New owner' }])
+  assert.equal(writes, 1)
+  assert.equal(updated.owner.id, '80')
+  assert.equal(updated.stage, raw.Stage)
+})
+
+test('ownership changes reject paid deals, stale records, unrelated contacts and inactive owners before writes', async () => {
+  for (const [recordChange, inputChange, error] of [
+    [{ Stage: 'PAID' }, {}, /already paid/],
+    [{}, { version: 'stale' }, /changed since/],
+    [{}, { contactId: '99' }, /does not belong/],
+    [{}, { ownerId: '99' }, /active Bigin user/],
+  ]) {
+    await assert.rejects(changeStageDealOwner({ ...input(), ownerId: '80', ...inputChange }, async (path, method) => {
+      assert.notEqual(method, 'PUT')
+      return { data: [{ ...raw, ...recordChange }] }
+    }, async () => metadata, async () => [{ id: '80' }]), error)
+  }
+})
+
+
+test('marking a deal paid stamps the server save date in Manila, ignoring browser dates and prior values', () => {
+  const current = { ...stageRecord(raw, metadata), paidDate: '2020-01-01' }
+  const payload = stageUpdate({ ...input(), Paid_Date: '1999-01-01', paidDate: '1999-01-01' }, current, catalog, new Date('2026-11-20T16:30:00Z'))
+  assert.equal(payload.Paid_Date, '2026-11-21')
+  const beforeMidnight = stageUpdate(input(), current, catalog, new Date('2026-11-20T15:59:59Z'))
+  assert.equal(beforeMidnight.Paid_Date, '2026-11-20')
+  const ordinary = stageUpdate({ ...input(), stage: raw.Stage }, current, catalog)
+  assert.equal('Paid_Date' in ordinary, false)
+  assert.equal(stageRecord({ ...raw, Paid_Date: payload.Paid_Date }, metadata).paidDate, '2026-11-21')
+})
+
+test('save reports a paid date readback mismatch instead of confirming an incomplete paid update', async () => {
+  let record = structuredClone(raw)
+  await assert.rejects(updateStageDeal({ ...input(), addProducts: [] }, async (path, method, body) => {
+    if (method === 'PUT') {
+      assert.match(body.data[0].Paid_Date, /^\d{4}-\d{2}-\d{2}$/)
+      const { Paid_Date, ...other } = body.data[0]
+      record = { ...record, ...other }
+      return { data: [{ code: 'SUCCESS' }] }
+    }
+    return { data: [record] }
+  }, async () => metadata, async () => catalog), /Paid Date differs/)
 })

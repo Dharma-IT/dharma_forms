@@ -58,3 +58,8 @@
 @media (max-width: 32rem) { .stage-editor .stage-product-fields { grid-template-columns: minmax(0, 1fr); }.stage-dependent-fields { padding: .75rem; }.stage-editor .stage-deal-heading button { width: auto; }.stage-editor-actions { padding-top: 1rem; } }
 
 .stage-page .stage-paid-deal:disabled { opacity: 1; background: #f3f7f3; color: #617a6e; cursor: not-allowed; }
+
+.stage-deal-option { display: grid; gap: .5rem; flex: 1 1 14rem; min-width: 0; }
+.stage-deal-option > button { width: 100%; }
+.stage-deal-option > button:disabled { cursor: not-allowed; }
+.stage-owner-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
