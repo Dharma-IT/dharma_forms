@@ -19,6 +19,21 @@ async function api(path: string, init?: RequestInit) {
   return data
 }
 
+function SavedDialog({ message, warning, onClose }: { message: string; warning?: string; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const element = dialog.current
+    element?.showModal()
+    return () => element?.close()
+  }, [])
+  return <dialog ref={dialog} className="stage-saved-dialog" aria-labelledby="stage-saved-title" aria-describedby="stage-saved-message" onCancel={onClose}>
+    <div className="stage-saved-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
+    <span className="stage-eyebrow">SAVED TO BIGIN</span><h2 id="stage-saved-title">Changes saved</h2><p id="stage-saved-message">{message}</p>
+    {warning && <p className="stage-saved-warning" role="alert">{warning}</p>}
+    <button type="button" autoFocus onClick={onClose}>Back to deals <span aria-hidden="true">&#8594;</span></button>
+  </dialog>
+}
+
 export default function Stage() {
   const [query, setQuery] = useState('')
   const [clients, setClients] = useState<Client[]>([])
@@ -44,6 +59,8 @@ export default function Stage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [savedConfirmation, setSavedConfirmation] = useState<{ message: string; warning?: string } | null>(null)
+  const dealList = useRef<HTMLElement>(null)
   const selection = useRef(0)
   const actionPanel = useRef<HTMLFormElement>(null)
   const activeAction = ownerTarget ? `owner:${ownerTarget.id}` : deal ? `edit:${deal.id}` : ''
@@ -64,6 +81,17 @@ export default function Stage() {
     api('products', { signal: controller.signal }).then(data => setProducts(data.products)).catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
     return () => controller.abort()
   }, [])
+  function returnToDeals() {
+    requestAnimationFrame(() => {
+      dealList.current?.focus({ preventScroll: true })
+      dealList.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })
+    })
+  }
+  function finishSave(message: string, warning?: string) {
+    chooseAnotherDeal()
+    setNotice(message)
+    setSavedConfirmation({ message, warning })
+  }
   function showDeal(value: Deal) {
     if (value.paid) { setDeal(null); setAdded([]); return }
     setDeal(value); setStage(value.stage); setNotes(value.paymentNotes); setMethod(value.paymentMethod); setInstallments(String(value.installments)); setAdded([]); setProductId(''); setProductQuery(''); setDraftPrice('0'); setDraftQuantity('1'); setDraftDiscount('0')
@@ -108,10 +136,8 @@ export default function Stage() {
     setBusy(true); setError(''); setNotice('')
     try {
       const data = await api(`deals/${ownerTarget.id}/owner`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: client.id, version: ownerTarget.version, ownerId }) })
-      setDeal(current => current && current.id === data.deal.id ? (data.deal.paid ? null : { ...current, version: data.deal.version, owner: data.deal.owner }) : current)
       setDeals(current => current.map(d => d.id === data.deal.id ? { ...d, paid: data.deal.paid, stage: data.deal.stage, owner: data.deal.owner } : d))
-      if (data.deal.auditWarning) setError(data.deal.auditWarning)
-      setOwnerTarget(null); setNotice(`Deal owner changed to ${data.deal.owner.name || ownerUsers.find(u => u.id === ownerId)?.name || 'the selected user'}.`)
+      finishSave(`Deal owner changed to ${data.deal.owner.name || ownerUsers.find(u => u.id === ownerId)?.name || 'the selected user'}.`, data.deal.auditWarning)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not change the deal owner.') }
     finally { setBusy(false) }
   }
@@ -128,8 +154,7 @@ export default function Stage() {
     setBusy(true); setError(''); setNotice('')
     try {
       const data = await api(`deals/${deal.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: client.id, version: deal.version, stage, paymentNotes: notes, paymentMethod: method, installments, addProducts: added.map(p => ({ id: p.id, price: p.price, quantity: p.quantity, discount: p.discount ?? 0 })) }) })
-      if (data.deal.auditWarning) setError(data.deal.auditWarning)
-      showDeal(data.deal); setDeals(current => current.map(d => d.id === deal.id ? { ...d, stage: data.deal.stage, paid: data.deal.paid, paidDate: data.deal.paidDate, amount: data.deal.amount } : d)); setNotice(data.deal.paid ? 'Saved to Bigin. This deal is now paid and can no longer be selected.' : 'Saved to Bigin. Products, Other Info, and payment details are up to date.')
+      setDeals(current => current.map(d => d.id === deal.id ? { ...d, stage: data.deal.stage, paid: data.deal.paid, paidDate: data.deal.paidDate, amount: data.deal.amount } : d)); finishSave(data.deal.paid ? 'This deal is now paid and can no longer be selected.' : 'Deal stage, products, and payment details are up to date.', data.deal.auditWarning)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save. Reload the deal before retrying.') }
     finally { setBusy(false) }
   }
@@ -138,6 +163,7 @@ export default function Stage() {
   return <main className={`stage-page${busy ? ' stage-is-busy' : ''}`} aria-busy={busy}>
     <header className="stage-header"><div className="stage-header-content"><span className="stage-eyebrow"><span className="stage-live-dot" /> CLIENT WORKSPACE</span><h1>Every detail.<br /><em>Moving forward.</em></h1><p>Manage stages, payments, and the people behind every deal.</p><div className="stage-header-tags"><span>Stages &amp; payments</span><span>Connected to Bigin</span></div></div><div className="stage-header-art" aria-hidden="true"><div className="stage-orbit stage-orbit-one" /><div className="stage-orbit stage-orbit-two" /><div className="stage-art-core"><svg viewBox="0 0 64 64" fill="none"><path d="M14 44 28 30l10 8 13-19M39 19h12v12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg></div><span className="stage-art-chip stage-art-chip-top">A little more momentum</span><span className="stage-art-chip stage-art-chip-bottom">One workspace. Every deal.</span></div></header>
     <nav className="stage-progress" aria-label="Workspace progress"><span className="stage-step is-active"><b>01</b> Find a client</span><span className={`stage-step${client ? ' is-active' : ''}`}><b>02</b> Choose a deal</span><span className={`stage-step${activeAction ? ' is-active' : ''}`}><b>03</b> Make your move</span></nav>
+    {savedConfirmation && <SavedDialog {...savedConfirmation} onClose={() => { setSavedConfirmation(null); returnToDeals() }} />}
     {error && <p className="stage-error" role="alert">{error}</p>}
     {notice && <p className="stage-notice" role="status">{notice}</p>}
     <form className="stage-search" onSubmit={search}><label>Find a client<input type="search" required minLength={2} maxLength={120} value={query} onChange={e => setQuery(e.target.value)} placeholder="Email, name, or phone number" /></label><button className="stage-primary" disabled={busy}>{busy ? 'Please wait…' : 'Search clients'}</button></form>
@@ -147,7 +173,7 @@ export default function Stage() {
       {more && <p>More matches are available. Refine your search to find the right client.</p>}
       <ul className="stage-results">{clients.map(c => <li key={c.id}><button disabled={busy} aria-pressed={client?.id === c.id} onClick={() => selectClient(c)}><strong>{c.name}</strong><span>{c.email || 'No email'}</span><span>{c.phone || 'No phone'}</span></button></li>)}</ul>
     </aside><section className="stage-workspace">
-      {client && <section className="stage-card"><h2>{client.name}</h2><p>{client.email} {client.phone && <> · {client.phone}</>}</p>{activeAction ? <div className="stage-collapsed-selection"><div><span className="stage-eyebrow">{ownerTarget ? 'CHANGING DEAL OWNER' : 'EDITING DEAL'}</span><strong>{(ownerTarget || deal)?.name}</strong><span>{(ownerTarget || deal)?.stage}</span></div><button type="button" disabled={busy} onClick={chooseAnotherDeal}>Choose another deal <span aria-hidden="true">&#8595;</span></button></div> : <h3>Select a deal</h3>}
+      {client && <section ref={dealList} tabIndex={-1} aria-label="Select a deal" className="stage-card stage-deal-list-panel"><h2>{client.name}</h2><p>{client.email} {client.phone && <> · {client.phone}</>}</p>{activeAction ? <div className="stage-collapsed-selection"><div><span className="stage-eyebrow">{ownerTarget ? 'CHANGING DEAL OWNER' : 'EDITING DEAL'}</span><strong>{(ownerTarget || deal)?.name}</strong><span>{(ownerTarget || deal)?.stage}</span></div><button type="button" disabled={busy} onClick={chooseAnotherDeal}>Choose another deal <span aria-hidden="true">&#8595;</span></button></div> : <h3>Select a deal</h3>}
         {!activeAction && <>
         {!busy && !deals.length && <p>No New Leads or Customer Service deals are linked to this client. Create or link their deal in Bigin first.</p>}
         <div className="stage-deals">{deals.map(d => <article className={`stage-deal-option${d.paid ? ' is-paid' : ''}${deal?.id === d.id ? ' is-selected' : ''}`} key={d.id}>

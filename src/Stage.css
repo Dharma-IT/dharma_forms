@@ -187,3 +187,11 @@
 .stage-owner-panel-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; border-top: 1px solid #e3e8dc; padding-top: 1.2rem; margin-top: 1.2rem; }
 .stage-owner-panel-footer p { font-size: .7rem; max-width: 20rem; margin: 0; }.stage-owner-actions button { border-radius: 999px; padding: .7rem 1.1rem; font-size: .75rem; }.stage-owner-actions .stage-primary span { margin-left: .5rem; }
 @media (max-width: 34rem) { .stage-owner-transfer { grid-template-columns: minmax(0, 1fr); }.stage-transfer-arrow { justify-self: center; rotate: 90deg; }.stage-owner-panel-tag { margin-left: 0; }.stage-owner-actions { width: 100%; }.stage-owner-actions button { flex: 1; } }
+.stage-deal-list-panel { scroll-margin-top: 6rem; }.stage-deal-list-panel:focus { outline: none; }
+.stage-saved-dialog { width: min(29rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; padding: 2.25rem; border: 1px solid #ffffffd9; border-radius: 1.5rem; background: radial-gradient(ellipse at top, #edf5e8, transparent 70%), #fffefa; color: #184c39; text-align: center; box-shadow: 0 24px 90px #12372c40; animation: stage-rise .25s ease both; }
+.stage-saved-dialog::backdrop { background: #143b3045; backdrop-filter: blur(6px); }
+.stage-saved-symbol { width: 4rem; height: 4rem; margin: 0 auto 1.25rem; display: grid; place-items: center; border: 1px solid #c8dcc0; border-radius: 1.3rem; color: #3e754b; background: #e3efdc; box-shadow: 0 6px 22px #42653912; }.stage-saved-symbol svg { width: 2rem; }
+.stage-saved-dialog h2 { font-family: Georgia, serif; font-size: 2rem; font-weight: 400; letter-spacing: -.04em; margin: .7rem 0; }.stage-saved-dialog p { color: #6a7e6b; line-height: 1.7; font-size: .875rem; overflow-wrap: anywhere; }
+.stage-saved-dialog button { display: flex; justify-content: center; gap: 1rem; width: 100%; min-height: 2.75rem; margin-top: 1.5rem; padding: .85rem 1rem; border: 0; border-radius: 999px; color: white; background: #184c39; cursor: pointer; }
+.stage-saved-dialog .stage-saved-warning { padding: .85rem; border: 1px solid #e6d2a4; border-radius: .7rem; background: #fff8e8; color: #7c5d28; font-size: .75rem; text-align: left; }
+@media (prefers-reduced-motion: reduce) { .stage-saved-dialog { animation: none; } }
