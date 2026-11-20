@@ -201,7 +201,7 @@ test('audit notes identify the authenticated staff account and describe actual c
     assert.match(body.data[0].Note_Content, /Deal ID: 20/)
     assert.match(body.data[0].Note_Content, /Deal created: November 19, 2026/)
     assert.match(body.data[0].Note_Content, /Deal edited: November 21, 2026/)
-    assert.match(body.data[0].Note_Content, /Products: No changes/)
+    assert.doesNotMatch(body.data[0].Note_Content, /Products:/)
     return { data: [{ code: 'SUCCESS' }] }
   }, new Date('2026-11-21T15:30:00Z'))
   assert.equal(warning, null)
@@ -217,7 +217,7 @@ test('audit note failures report that the deal save already succeeded', async ()
 })
 
 
-test('audit notes label new or modified products as Product input and preserve unchanged stage and owner context', async () => {
+test('audit notes label product changes as Product input and omit unchanged fields', async () => {
   const before = stageRecord({ ...raw, Deal_Name: 'Sellers - Client', Owner: { id: '70', name: 'Carlos' } }, metadata)
   for (const products of [
     [...before.products, { id: '60', name: 'New product', price: 10, quantity: 1 }],
@@ -228,9 +228,23 @@ test('audit notes label new or modified products as Product input and preserve u
       assert.equal(note.Note_Title, 'Updated by: staff@example.com')
       assert.match(note.Note_Content, /Deal: Sellers - Client/)
       assert.match(note.Note_Content, /Products: Product input/)
-      assert.match(note.Note_Content, /Stage: Unchanged/)
-      assert.match(note.Note_Content, /Ownership: Unchanged \(Carlos\)/)
+      assert.doesNotMatch(note.Note_Content, /Stage:|Ownership:/)
       return { data: [{ code: 'SUCCESS' }] }
     }, new Date('2026-07-21T15:00:00Z')), null)
   }
+})
+
+
+test('ownership-only notes omit stage, products, and unchanged payment details', async () => {
+  const before = stageRecord({ ...raw, Owner: { id: '70', name: 'Carlos' } }, metadata)
+  const after = { ...before, owner: { id: '80', name: 'Ana' } }
+  assert.equal(await addStageAuditNote(before, after, { id: 'staff', email: 'staff@example.com' }, async (path, method, body) => {
+    const note = body.data[0]
+    assert.equal(note.Note_Title, 'Updated by: staff@example.com')
+    assert.match(note.Note_Content, /Ownership: Carlos -> Ana/)
+    assert.match(note.Note_Content, /Deal created:/)
+    assert.match(note.Note_Content, /Deal edited:/)
+    assert.doesNotMatch(note.Note_Content, /Stage:|Products:|Payment notes:|Installments:|Unchanged|No changes/)
+    return { data: [{ code: 'SUCCESS' }] }
+  }), null)
 })
