@@ -225,7 +225,8 @@ test('audit notes label new or modified products as Product input and preserve u
   ]) {
     assert.equal(await addStageAuditNote(before, { ...before, products }, { id: 'staff', email: 'staff@example.com' }, async (path, method, body) => {
       const note = body.data[0]
-      assert.match(note.Note_Title, /Sellers - Client.*Product input/)
+      assert.equal(note.Note_Title, 'Updated by: staff@example.com')
+      assert.match(note.Note_Content, /Deal: Sellers - Client/)
       assert.match(note.Note_Content, /Products: Product input/)
       assert.match(note.Note_Content, /Stage: Unchanged/)
       assert.match(note.Note_Content, /Ownership: Unchanged \(Carlos\)/)

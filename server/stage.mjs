@@ -185,9 +185,8 @@ export async function addStageAuditNote(before, after, actor, request = biginReq
     if (!actor.id || !actor.email) throw new Error('Missing authenticated staff identity.')
     const dateFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', dateStyle: 'long', timeStyle: 'long' })
     const timestamp = value => value && !Number.isNaN(new Date(value).getTime()) ? dateFormat.format(new Date(value)) : 'Not available in Bigin'
-    const actions = [stageChanged && 'Stage changed', ownerChanged && 'Ownership changed', productsChanged && 'Product input', details.length > 0 && 'Payment / deal details updated'].filter(Boolean)
     const response = await request(`Pipelines/${after.id}/Notes`, 'POST', { data: [{
-      Note_Title: `Deal update: ${after.name || after.id} | ${actions.join(', ')}`.slice(0, 255),
+      Note_Title: `Updated by: ${actor.email}`.slice(0, 255),
       Note_Content: [
         'DEAL UPDATE AUDIT',
         `Deal: ${after.name || '(unnamed deal)'}`,
