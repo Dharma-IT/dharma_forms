@@ -193,10 +193,11 @@ test('audit notes identify the authenticated staff account and describe actual c
     notes++
     assert.equal(path, 'Pipelines/20/Notes')
     assert.equal(method, 'POST')
-    assert.match(body.data[0].Note_Content, /staff@example.com/)
+    assert.equal(body.data[0].Note_Title, 'Updated by: staff@example.com')
     assert.match(body.data[0].Note_Content, /Stage: Waiting for Payment -> PAID/)
     assert.match(body.data[0].Note_Content, /Ownership: Original owner -> New owner/)
-    assert.match(body.data[0].Note_Content, /America\/New_York/)
+    assert.doesNotMatch(body.data[0].Note_Content, /Time zone:|Edited by:|WHAT CHANGED/)
+    assert.match(body.data[0].Note_Content, /\nCHANGES\n/)
     assert.match(body.data[0].Note_Content, /EST/)
     assert.match(body.data[0].Note_Content, /Deal ID: 20/)
     assert.match(body.data[0].Note_Content, /Deal created: November 19, 2026/)
