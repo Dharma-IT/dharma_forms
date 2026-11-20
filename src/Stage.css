@@ -158,3 +158,11 @@
 .stage-deal-option.is-paid .stage-category, .stage-deal-option.is-paid .stage-owner-avatar { filter: saturate(.35); }
 .stage-deals .stage-paid-caption { margin-top: .9rem; font-size: .65rem; color: #536c59; }
 @media (prefers-reduced-motion: reduce) { .stage-deal-option { transition: none; }.stage-deal-option:not(.is-paid):hover { transform: none; } }
+.stage-collapsed-selection { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.2rem; margin-top: 1.25rem; border: 1px solid #dbe5d7; border-radius: .9rem; background: linear-gradient(120deg, #eff6ee, #faf7ed); animation: stage-rise .25s ease both; }
+.stage-collapsed-selection > div { min-width: 0; }
+.stage-collapsed-selection strong { display: block; font-family: Georgia, serif; font-size: 1.3rem; font-weight: 500; margin: .5rem 0 .3rem; overflow-wrap: anywhere; }
+.stage-collapsed-selection > div > span:last-child { font-size: .75rem; color: #647c6c; }
+.stage-collapsed-selection button { flex-shrink: 0; font-size: .75rem; background: #ffffffb3; }
+.stage-action-panel { scroll-margin-top: 6rem; }
+.stage-action-panel:focus { outline: none; }
+@media (prefers-reduced-motion: reduce) { .stage-collapsed-selection { animation: none; } }
