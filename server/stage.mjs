@@ -98,7 +98,8 @@ export function stageUpdate(input, current, products, now = new Date()) {
   const payload = { id: current.id, Payment_Notes: input.paymentNotes, Installments: Number(input.installments) }
   if (input.stage !== current.stage) payload.Stage = input.stage
   if (isPaidStage(input.stage)) {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+    // US Eastern time follows EST or EDT automatically.
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
     const part = type => parts.find(value => value.type === type).value
     payload.Paid_Date = `${part('year')}-${part('month')}-${part('day')}`
   }

@@ -154,12 +154,16 @@ test('ownership changes reject paid deals, stale records, unrelated contacts and
 })
 
 
-test('marking a deal paid stamps the server save date in Manila, ignoring browser dates and prior values', () => {
+test('marking a deal paid stamps the server save date in US Eastern time (EST/EDT), ignoring browser dates and prior values', () => {
   const current = { ...stageRecord(raw, metadata), paidDate: '2020-01-01' }
-  const payload = stageUpdate({ ...input(), Paid_Date: '1999-01-01', paidDate: '1999-01-01' }, current, catalog, new Date('2026-11-20T16:30:00Z'))
+  const payload = stageUpdate({ ...input(), Paid_Date: '1999-01-01', paidDate: '1999-01-01' }, current, catalog, new Date('2026-11-21T05:00:00Z'))
   assert.equal(payload.Paid_Date, '2026-11-21')
-  const beforeMidnight = stageUpdate(input(), current, catalog, new Date('2026-11-20T15:59:59Z'))
+  const beforeMidnight = stageUpdate(input(), current, catalog, new Date('2026-11-21T04:59:59Z'))
   assert.equal(beforeMidnight.Paid_Date, '2026-11-20')
+  const summer = stageUpdate(input(), current, catalog, new Date('2026-07-21T04:30:00Z'))
+  assert.equal(summer.Paid_Date, '2026-07-21')
+  const summerBeforeMidnight = stageUpdate(input(), current, catalog, new Date('2026-07-21T03:59:59Z'))
+  assert.equal(summerBeforeMidnight.Paid_Date, '2026-07-20')
   const ordinary = stageUpdate({ ...input(), stage: raw.Stage }, current, catalog)
   assert.equal('Paid_Date' in ordinary, false)
   assert.equal(stageRecord({ ...raw, Paid_Date: payload.Paid_Date }, metadata).paidDate, '2026-11-21')
