@@ -46,7 +46,7 @@ const server = createServer(async (req, res) => {
         let raw = ''
         for await (const chunk of req) { raw += chunk; if (raw.length > 16000) return reply(413, { error: 'Request too large' }) }
         const input = { ...JSON.parse(raw), id: (ownerChange || deal)[1] }
-        return reply(200, { deal: await (ownerChange ? changeStageDealOwner(input) : updateStageDeal(input)) })
+        return reply(200, { deal: await (ownerChange ? changeStageDealOwner(input, undefined, undefined, undefined, user) : updateStageDeal(input, undefined, undefined, undefined, user)) })
       }
       return reply(404, { error: 'Not found' })
     }

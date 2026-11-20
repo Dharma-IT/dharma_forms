@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { changeStageDealOwner, stageRecord, stageUpdate, stageLineTotal, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
+import { addStageAuditNote, changeStageDealOwner, stageRecord, stageUpdate, stageLineTotal, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
 
 const metadata = { pipelines: [{ id: '10', name: 'New Leads', stages: ['Unused global stage'], fields: [
   { api_name: 'Sub_Pipeline', pick_list_values: [{ actual_value: 'Old sub', display_value: 'Sales', maps: [{ api_name: 'Stage', pick_list_values: [{ actual_value: 'PAID' }, { actual_value: 'Waiting for Payment' }] }] }] },
@@ -182,4 +182,54 @@ test('save reports a paid date readback mismatch instead of confirming an incomp
     }
     return { data: [record] }
   }, async () => metadata, async () => catalog), /Paid Date differs/)
+})
+
+
+test('audit notes identify the authenticated staff account and describe actual changes in Eastern time', async () => {
+  const before = stageRecord({ ...raw, Owner: { id: '70', name: 'Original owner' } }, metadata)
+  const after = { ...before, stage: 'PAID', paidDate: '2026-11-21', owner: { id: '80', name: 'New owner' } }
+  let notes = 0
+  const warning = await addStageAuditNote(before, after, { id: 'staff-auth-id', email: 'staff@example.com' }, async (path, method, body) => {
+    notes++
+    assert.equal(path, 'Pipelines/20/Notes')
+    assert.equal(method, 'POST')
+    assert.match(body.data[0].Note_Content, /staff@example.com/)
+    assert.match(body.data[0].Note_Content, /Stage: Waiting for Payment -> PAID/)
+    assert.match(body.data[0].Note_Content, /Ownership: Original owner -> New owner/)
+    assert.match(body.data[0].Note_Content, /America\/New_York/)
+    assert.match(body.data[0].Note_Content, /EST/)
+    assert.match(body.data[0].Note_Content, /Deal ID: 20/)
+    assert.match(body.data[0].Note_Content, /Deal created: November 19, 2026/)
+    assert.match(body.data[0].Note_Content, /Deal edited: November 21, 2026/)
+    assert.match(body.data[0].Note_Content, /Products: No changes/)
+    return { data: [{ code: 'SUCCESS' }] }
+  }, new Date('2026-11-21T15:30:00Z'))
+  assert.equal(warning, null)
+  assert.equal(notes, 1)
+  assert.equal(await addStageAuditNote(before, before, {}, async () => assert.fail('No note for no change')), null)
+})
+
+test('audit note failures report that the deal save already succeeded', async () => {
+  const before = stageRecord(raw, metadata)
+  const warning = await addStageAuditNote(before, { ...before, stage: 'PAID' }, { id: 'staff', email: 'staff@example.com' }, async () => { throw new Error('Scope mismatch') })
+  assert.match(warning, /changes were saved/)
+  assert.match(warning, /Do not repeat/)
+})
+
+
+test('audit notes label new or modified products as Product input and preserve unchanged stage and owner context', async () => {
+  const before = stageRecord({ ...raw, Deal_Name: 'Sellers - Client', Owner: { id: '70', name: 'Carlos' } }, metadata)
+  for (const products of [
+    [...before.products, { id: '60', name: 'New product', price: 10, quantity: 1 }],
+    before.products.map(product => ({ ...product, price: 200 })),
+  ]) {
+    assert.equal(await addStageAuditNote(before, { ...before, products }, { id: 'staff', email: 'staff@example.com' }, async (path, method, body) => {
+      const note = body.data[0]
+      assert.match(note.Note_Title, /Sellers - Client.*Product input/)
+      assert.match(note.Note_Content, /Products: Product input/)
+      assert.match(note.Note_Content, /Stage: Unchanged/)
+      assert.match(note.Note_Content, /Ownership: Unchanged \(Carlos\)/)
+      return { data: [{ code: 'SUCCESS' }] }
+    }, new Date('2026-07-21T15:00:00Z')), null)
+  }
 })

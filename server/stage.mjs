@@ -122,7 +122,7 @@ export function stageUpdate(input, current, products, now = new Date()) {
   return payload
 }
 
-export async function updateStageDeal(input, request = biginRequest, loadMetadata = getFormMetadata, loadProducts = getStageProducts) {
+export async function updateStageDeal(input, request = biginRequest, loadMetadata = getFormMetadata, loadProducts = getStageProducts, actor) {
   assertId(input.id)
   if (pending.has(input.id)) throw new Error('This deal is already being saved. Wait, then reload it.')
   pending.add(input.id)
@@ -140,11 +140,12 @@ export async function updateStageDeal(input, request = biginRequest, loadMetadat
       const expected = Math.round(Number(current.amount) * 100) + input.addProducts.reduce((sum, p) => sum + Math.round(stageLineTotal(p.price, p.quantity, p.discount ?? 0) * 100), 0)
       if (Math.round(Number(fresh.amount) * 100) !== expected || current.products.some(p => !fresh.products.some(row => row.rowId === p.rowId && row.id === p.id && Number(row.price) === Number(p.price) && Number(row.quantity) === Number(p.quantity) && Number(row.discount) === Number(p.discount))) || input.addProducts.some(p => !fresh.products.some(row => row.id === p.id && Number(row.price) === Number(p.price) && Number(row.quantity) === Number(p.quantity) && Number(row.discount) === Number(p.discount ?? 0)))) throw new Error('Bigin saved unexpected product totals or changed an existing row. Reload the record and review it before retrying.')
     }
+    if (actor) fresh.auditWarning = await addStageAuditNote(current, fresh, actor, request)
     return fresh
   } finally { pending.delete(input.id) }
 }
 
-export async function changeStageDealOwner(input, request = biginRequest, loadMetadata = getFormMetadata, loadUsers = getBiginUsers) {
+export async function changeStageDealOwner(input, request = biginRequest, loadMetadata = getFormMetadata, loadUsers = getBiginUsers, actor) {
   assertId(input.id)
   assertId(input.ownerId)
   if (pending.has(input.id)) throw new Error('This deal is already being saved. Wait, then reload it.')
@@ -159,6 +160,57 @@ export async function changeStageDealOwner(input, request = biginRequest, loadMe
     if (saved.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin did not confirm the owner change. Reload the deal before retrying.')
     const fresh = await getStageDeal(input.id, request, loadMetadata)
     if (fresh.owner.id !== input.ownerId) throw new Error('Bigin returned a different owner. Reload the deal and review before retrying.')
+    if (actor) fresh.auditWarning = await addStageAuditNote(current, fresh, actor, request)
     return fresh
   } finally { pending.delete(input.id) }
+}
+
+
+export async function addStageAuditNote(before, after, actor, request = biginRequest, now = new Date()) {
+  const text = value => value === null || value === undefined || value === '' ? '(empty)' : String(value)
+  const currency = value => value == null ? '(empty)' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value))
+  const stageChanged = before.stage !== after.stage
+  const ownerChanged = before.owner.id !== after.owner.id
+  const productSignature = products => JSON.stringify(products.map(product => [product.rowId || '', product.id, product.name, Number(product.price), Number(product.quantity), Number(product.discount || 0)]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))))
+  const productsChanged = productSignature(before.products) !== productSignature(after.products) || before.productText !== after.productText
+  const details = []
+  for (const [key, label] of [['paidDate', 'Paid date'], ['paymentNotes', 'Payment notes'], ['paymentMethod', 'Payment method'], ['installments', 'Installments'], ['amount', 'Amount'], ['totalPayable', 'Total amount payable']]) {
+    if (text(before[key]) !== text(after[key])) {
+      const format = ['installments', 'amount', 'totalPayable'].includes(key) ? currency : text
+      details.push(`${label}: ${format(before[key])} -> ${format(after[key])}`)
+    }
+  }
+  if (!stageChanged && !ownerChanged && !productsChanged && !details.length) return null
+  try {
+    if (!actor.id || !actor.email) throw new Error('Missing authenticated staff identity.')
+    const dateFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', dateStyle: 'long', timeStyle: 'long' })
+    const timestamp = value => value && !Number.isNaN(new Date(value).getTime()) ? dateFormat.format(new Date(value)) : 'Not available in Bigin'
+    const actions = [stageChanged && 'Stage changed', ownerChanged && 'Ownership changed', productsChanged && 'Product input', details.length > 0 && 'Payment / deal details updated'].filter(Boolean)
+    const response = await request(`Pipelines/${after.id}/Notes`, 'POST', { data: [{
+      Note_Title: `Deal update: ${after.name || after.id} | ${actions.join(', ')}`.slice(0, 255),
+      Note_Content: [
+        'DEAL UPDATE AUDIT',
+        `Deal: ${after.name || '(unnamed deal)'}`,
+        `Deal ID: ${after.id}`,
+        `Pipeline: ${after.pipeline}`,
+        `Deal created: ${timestamp(after.createdTime || before.createdTime)}`,
+        `Deal edited: ${timestamp(now)}`,
+        'Time zone: Eastern Time (America/New_York; EST/EDT)',
+        `Edited by: ${actor.email}`,
+        '',
+        'WHAT CHANGED',
+        `Stage: ${stageChanged ? `${text(before.stage)} -> ${text(after.stage)}` : `Unchanged (${text(after.stage)})`}`,
+        `Ownership: ${ownerChanged ? `${before.owner.name || before.owner.id} -> ${after.owner.name || after.owner.id}` : `Unchanged (${after.owner.name || after.owner.id || 'Not assigned'})`}`,
+        `Products: ${productsChanged ? 'Product input' : 'No changes'}`,
+        ...details,
+        '',
+        'Source: Stage app',
+        `Signed-in account ID: ${actor.id}`,
+      ].join('\n'),
+    }] })
+    if (response.data?.[0]?.code !== 'SUCCESS') throw new Error('Note creation was not confirmed.')
+    return null
+  } catch {
+    return 'Your deal changes were saved, but the audit note could not be added to Bigin. Check the Notes permissions on the Bigin connection. Do not repeat the deal update.'
+  }
 }
