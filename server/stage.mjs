@@ -37,8 +37,8 @@ export async function getStageClient(id, request = biginRequest) {
   if (!c) throw new Error('This client no longer exists.')
   const deals = []
   for (let page = 1; ; page++) {
-    const result = await request(`Contacts/${id}/Pipelines?${new URLSearchParams({ fields: 'Deal_Name,Pipeline,Stage,Amount,Modified_Time,Paid_Date,Created_Time,Owner', per_page: '200', page: String(page) })}`)
-    for (const d of result.data || []) if (['New Leads', 'Customer Service'].includes(d.Pipeline?.name)) deals.push({ id: d.id, name: d.Deal_Name, pipeline: d.Pipeline.name, stage: d.Stage, paid: isPaidStage(d.Stage), paidDate: d.Paid_Date || null, createdTime: d.Created_Time || null, owner: { id: d.Owner?.id || '', name: d.Owner?.name || '' }, amount: d.Amount, modified: d.Modified_Time })
+    const result = await request(`Contacts/${id}/Pipelines?${new URLSearchParams({ fields: 'Deal_Name,Pipeline,Stage,Amount,Modified_Time,Paid_Date,Created_Time,Owner,Evaluation_date_and_hour', per_page: '200', page: String(page) })}`)
+    for (const d of result.data || []) if (['New Leads', 'Customer Service'].includes(d.Pipeline?.name)) deals.push({ id: d.id, name: d.Deal_Name, pipeline: d.Pipeline.name, stage: d.Stage, paid: isPaidStage(d.Stage), paidDate: d.Paid_Date || null, createdTime: d.Created_Time || null, evaluationTime: d.Evaluation_date_and_hour || null, owner: { id: d.Owner?.id || '', name: d.Owner?.name || '' }, amount: d.Amount, modified: d.Modified_Time })
     if (!result.info?.more_records) break
   }
   return { client: { id: c.id, name: c.Full_Name || [c.First_Name, c.Last_Name].filter(Boolean).join(' '), email: c.Email || '', phone: c.Phone || c.Mobile || '' }, deals }
@@ -58,7 +58,7 @@ export function stageRecord(raw, metadata) {
     paymentNotes: raw.Payment_Notes || '', paymentNotesMax: field('Payment_Notes')?.length || 255,
     paymentMethod: raw.Payment_Method === '-None-' ? '' : raw.Payment_Method || '', paymentMethods: choices(field('Payment_Method')),
     installments: raw.Installments ?? 0, amount: raw.Amount ?? 0, totalPayable: raw.Total_Amount_Payable ?? null,
-    paidDate: raw.Paid_Date || null, createdTime: raw.Created_Time || null,
+    paidDate: raw.Paid_Date || null, createdTime: raw.Created_Time || null, evaluationTime: raw.Evaluation_date_and_hour || null,
     productText: raw.Product || '', productTextMax: field('Product')?.length || 255,
     products: (raw.Associated_Products || []).map(p => ({ rowId: p.id, id: p.Product?.id, name: p.Product?.name || p.Product?.Product_Name || '', price: p.List_Price ?? 0, quantity: p.Quantity ?? 1, discount: p.Discount ?? 0, total: p.Total ?? 0 })),
   }

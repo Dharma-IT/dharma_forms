@@ -149,6 +149,7 @@
 .stage-deals .stage-owner-avatar { display: grid; place-items: center; flex-shrink: 0; width: 2.2rem; height: 2.2rem; margin: 0; border-radius: .7rem; background: #eee5d1; border: 1px solid #e1d2af; color: #705b30; font-family: Georgia, serif; font-size: 1.1rem; }
 .stage-deal-owner > span:last-child > span:last-child { font-size: .8rem; font-weight: 550; margin: 0; }
 .stage-deals .stage-created { margin: 0; padding-top: .8rem; border-top: 1px dashed #d4ded1; }
+.stage-deals .stage-evaluation { padding-top: .65rem; border-top: 0; }
 .stage-created time { display: block; font-size: .72rem; color: #4b6655; line-height: 1.5; }
 .stage-deal-option > .stage-change-owner { flex: none; display: flex; align-items: center; justify-content: space-between; border: 0; border-top: 1px solid #e4ddc8; border-radius: 0; padding: .85rem 1.25rem; background: #faf5e9; color: #775b27; font-size: .72rem; font-weight: 600; }
 .stage-change-owner > span { margin: 0; font-size: 1rem; }

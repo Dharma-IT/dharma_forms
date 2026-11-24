@@ -29,6 +29,19 @@ test('deal metadata follows its sub-pipeline stage map, exposes totals, and reje
   assert.throws(() => stageRecord({ ...raw, $has_more: { Associated_Products: true } }, metadata), /preserve all rows/)
 })
 
+test('evaluation dates are exposed in deal details and client cards, including empty dates', async () => {
+  const evaluation = '2026-11-25T14:30:00-05:00'
+  assert.equal(stageRecord({ ...raw, Evaluation_date_and_hour: evaluation }, metadata).evaluationTime, evaluation)
+  assert.equal(stageRecord(raw, metadata).evaluationTime, null)
+  const result = await getStageClient('30', async path => {
+    if (path === 'Contacts/30') return { data: [{ id: '30' }] }
+    assert.ok(new URLSearchParams(path.split('?')[1]).get('fields').split(',').includes('Evaluation_date_and_hour'))
+    return { data: [{ ...raw, Evaluation_date_and_hour: evaluation }, { ...raw, id: '21' }] }
+  })
+  assert.equal(result.deals[0].evaluationTime, evaluation)
+  assert.equal(result.deals[1].evaluationTime, null)
+})
+
 test('product additions append verified catalog identities, synchronize Other Info, and carry forward only the CRM Amount', () => {
   const payload = stageUpdate(input(), stageRecord(raw, metadata), catalog)
   assert.deepEqual(payload.Associated_Products, [{ Product: { id: '60' }, List_Price: 45, Quantity: 2, Discount: 0 }])

@@ -4,7 +4,7 @@ import { authenticatedFetch } from './auth'
 import './Stage.css'
 
 type Client = { id: string; name: string; email: string; phone: string }
-type Summary = { id: string; name: string; pipeline: string; stage: string; paid: boolean; paidDate: string | null; createdTime: string | null; owner: { id: string; name: string }; amount: number }
+type Summary = { id: string; name: string; pipeline: string; stage: string; paid: boolean; paidDate: string | null; createdTime: string | null; evaluationTime: string | null; owner: { id: string; name: string }; amount: number }
 type Product = { id: string; name: string; price: number }
 type Line = Product & { quantity: number; total?: number; discount?: number; rowId?: string }
 type Deal = Summary & { owner: { id: string; name: string }; contactId: string; version: string; stages: string[]; paymentNotes: string; paymentNotesMax: number; paymentMethod: string; paymentMethods: { value: string; label: string }[]; installments: number; totalPayable: number | null; productText: string; products: Line[] }
@@ -183,6 +183,7 @@ export default function Stage() {
             <span className="stage-deal-value"><span className="stage-meta-label">DEAL VALUE</span><span>{d.amount == null ? 'Not set' : money(d.amount)}</span></span>
             <span className="stage-deal-owner"><span className="stage-owner-avatar" aria-hidden="true">{d.owner?.name?.slice(0, 1) || '-'}</span><span><span className="stage-meta-label">DEAL OWNER</span><span>{d.owner?.name || 'Not available'}</span></span></span>
             <span className="stage-created"><span className="stage-meta-label">CREATED &middot; EASTERN TIME</span><time dateTime={d.createdTime || undefined}>{createdDate(d.createdTime)}</time></span>
+            <span className="stage-created stage-evaluation"><span className="stage-meta-label">Evaluation date &middot; Eastern Time</span><time dateTime={d.evaluationTime || undefined}>{createdDate(d.evaluationTime)}</time></span>
             {d.paid && <span className="stage-paid-caption">Paid{d.paidDate ? ` on ${d.paidDate}` : ''} &middot; Locked</span>}
           </button><button className="stage-change-owner" type="button" disabled={busy || d.paid} onClick={() => openOwnerChange(d.id)}>Change Deal Owner <span aria-hidden="true">&#8599;</span></button>
         </article>)}</div></>}
