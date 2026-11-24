@@ -1,6 +1,6 @@
 import { biginRequest } from './submissions.mjs'
 import { getMembers, getBiginUsers } from './teams.mjs'
-import { isManagedCalendarBlock } from './calendar-blocks.mjs'
+import { easternInstant, isManagedCalendarBlock } from './calendar-blocks.mjs'
 
 export async function getCalendar(date, request = biginRequest) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
@@ -51,4 +51,33 @@ export async function cancelCalendarMeeting(input, request = biginRequest, loadM
   const result = await request(`Events/${input.id}`, 'DELETE')
   if (result.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin did not confirm cancellation. Refresh the calendar before retrying.')
   return { cancelled: true }
+}
+
+export async function rescheduleCalendarMeeting(input, request = biginRequest, loadMembers = getMembers) {
+  if (typeof input.id !== 'string' || !/^\d+$/.test(input.id)) throw new Error('Select a valid meeting.')
+  const start = easternInstant(input.start)
+  const end = easternInstant(input.end)
+  if (Date.parse(end) <= Date.parse(start)) throw new Error('Meeting end must be after its start.')
+  const event = (await request(`Events/${input.id}`)).data?.[0]
+  if (!event || event.$event_cancelled) throw new Error('This meeting is no longer active. Refresh the calendar.')
+  const members = await loadMembers()
+  if (!members.some(member => ['sellers', 'customer-service', 'nutritionists'].includes(member.team) && member.id === event.Owner?.id)) throw new Error('This meeting is outside the team calendar.')
+  if (isManagedCalendarBlock(event)) throw new Error('Use the block editor to change calendar blocks.')
+  if (event.All_day || event.Recurring_Activity || event.$recurrence_id) throw new Error('Reschedule all-day or recurring meetings directly in Bigin.')
+  if (!input.version || input.version !== event.Modified_Time || input.ownerId !== event.Owner?.id) throw new Error('This meeting changed. Refresh before rescheduling.')
+  const result = await request(`Events/${input.id}`, 'PUT', { data: [{ id: input.id, Start_DateTime: start, End_DateTime: end }], trigger: [] })
+  if (result.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin did not confirm rescheduling. Refresh before retrying.')
+  const saved = (await request(`Events/${input.id}`)).data?.[0]
+  if (Date.parse(saved?.Start_DateTime) !== Date.parse(start) || Date.parse(saved?.End_DateTime) !== Date.parse(end)) throw new Error('Bigin saved different meeting times. Refresh before retrying.')
+  let warning
+  if (saved.Related_To?.id && ['Deals', 'Pipelines'].includes(saved.$related_module || saved.$se_module)) {
+    try {
+      const dealId = saved.Related_To.id
+      const update = await request(`Pipelines/${dealId}`, 'PUT', { data: [{ id: dealId, Evaluation_date_and_hour: saved.Start_DateTime }], trigger: [] })
+      if (update.data?.[0]?.code !== 'SUCCESS') throw new Error('Date update was not confirmed.')
+      const deal = (await request(`Pipelines/${dealId}`)).data?.[0]
+      if (Date.parse(deal?.Evaluation_date_and_hour) !== Date.parse(start)) throw new Error('Date readback differs.')
+    } catch { warning = 'Meeting rescheduled, but Evaluation date and hour in Bigin could not be verified. Refresh and save the same time again to retry.' }
+  }
+  return { rescheduled: true, warning }
 }

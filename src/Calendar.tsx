@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { authenticatedFetch } from './auth'
 import './Calendar.css'
-import MeetingConnection from './MeetingConnection'
 import CalendarBlockEditor from './CalendarBlockEditor'
 
 type Person = { id: string; name: string; email: string; teams: string[] }
@@ -27,6 +26,28 @@ function minute(value: string, day: string) {
   return Number(parts.find(part => part.type === 'hour')?.value) * 60 + Number(parts.find(part => part.type === 'minute')?.value)
 }
 function EventDetails({ event, owner, onClose, onChanged }: { event: CalendarEvent; owner?: Person; onClose: () => void; onChanged: () => void }) {
+  const localTime = (value: string) => {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(value))
+    const part = (type: string) => parts.find(p => p.type === type)?.value
+    return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`
+  }
+  const [editingTime, setEditingTime] = useState(false)
+  const [start, setStart] = useState(() => localTime(event.start))
+  const [end, setEnd] = useState(() => localTime(event.end))
+  const [rescheduling, setRescheduling] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
+  const [scheduleWarning, setScheduleWarning] = useState('')
+  async function rescheduleMeeting(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setRescheduling(true); setScheduleError(''); setScheduleWarning('')
+    try {
+      const response = await authenticatedFetch(`/api/calendar/meetings/${event.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: event.version, ownerId: event.ownerId, start, end }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not reschedule this meeting.')
+      if (result.warning) { setScheduleWarning(result.warning); return }
+      onChanged()
+    } catch (reason) { setScheduleError(reason instanceof Error ? reason.message : 'Could not reschedule this meeting.') }
+    finally { setRescheduling(false) }
+  }
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState('')
@@ -59,9 +80,18 @@ function EventDetails({ event, owner, onClose, onChanged }: { event: CalendarEve
         <dt>Description</dt><dd className="event-description">{event.editableBlock ? 'This block makes overlapping appointment times unavailable.' : event.description || 'No description provided'}</dd>
         <dt>Participants</dt><dd>{event.participants?.length ? <ul>{event.participants.map((person, index) => <li key={index}>{person.name}{person.email && <div>{person.email}</div>}{person.status && <small>{person.status}</small>}</li>)}</ul> : 'No participants listed'}</dd>
       </dl>
-      {!event.editableBlock && <MeetingConnection meeting={event} onChanged={onChanged} />}
+
       {!event.editableBlock && <section className="meeting-cancel">
-        {confirmCancel ? <><p>Cancel this meeting? This removes the meeting from Bigin. The deal remains unchanged. Attendee notifications are not guaranteed; notify the client separately.</p><div className="block-edit-actions"><button type="button" disabled={cancelling} onClick={cancelMeeting}>{cancelling ? 'Cancelling?' : 'Confirm cancellation'}</button><button type="button" disabled={cancelling} onClick={() => setConfirmCancel(false)}>Keep meeting</button></div></> : <button type="button" className="cancel-meeting-button" onClick={() => setConfirmCancel(true)}>Cancel meeting</button>}
+        {editingTime ? <form className="calendar-block-form" onSubmit={rescheduleMeeting}>
+          <p>Choose the new start and end in Eastern Time (New York). The linked deal?s evaluation date and hour will also update.</p>
+          <fieldset disabled={rescheduling || Boolean(scheduleWarning)}><label>Start<input type="datetime-local" required value={start} onChange={e => setStart(e.target.value)} /></label><label>End<input type="datetime-local" required value={end} onChange={e => setEnd(e.target.value)} /></label>
+          <div className="block-edit-actions"><button type="submit">{rescheduling ? 'Saving...' : 'Save new time'}</button><button type="button" onClick={() => setEditingTime(false)}>Keep current time</button></div></fieldset>
+          {scheduleError && <p role="alert" className="block-edit-error">{scheduleError}</p>}
+          {scheduleWarning && <><p role="alert" className="block-edit-error">{scheduleWarning}</p><button type="button" className="block-edit-button" onClick={onChanged}>Refresh meeting</button></>}
+        </form> : !confirmCancel && <button type="button" className="block-edit-button" onClick={() => { setEditingTime(true); setConfirmCancel(false) }}>Reschedule meeting</button>}
+        {!editingTime && <>
+        {confirmCancel ? <><p>Cancel this meeting? This removes the meeting from Bigin. The deal remains unchanged. Attendee notifications are not guaranteed; notify the client separately.</p><div className="block-edit-actions"><button type="button" disabled={cancelling} onClick={cancelMeeting}>{cancelling ? 'Cancelling...' : 'Confirm cancellation'}</button><button type="button" disabled={cancelling} onClick={() => setConfirmCancel(false)}>Keep meeting</button></div></> : <button type="button" className="cancel-meeting-button" onClick={() => setConfirmCancel(true)}>Cancel meeting</button>}
+        </>}
         {cancelError && <p role="alert" className="block-edit-error">{cancelError}</p>}
       </section>}
       {event.editableBlock && owner && <CalendarBlockEditor block={event} teams={owner.teams} onChanged={onChanged} />}
