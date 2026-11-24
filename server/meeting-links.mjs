@@ -29,6 +29,7 @@ export async function linkMeeting(input, request = biginRequest, loadMembers = g
     if (!members.some(member => ['sellers', 'customer-service', 'nutritionists'].includes(member.team) && member.id === event.Owner?.id)) throw new Error('Select a meeting on the team calendar.')
     if (!input.version || event.Modified_Time !== input.version) throw new Error('This meeting changed. Refresh before connecting it.')
     if (!deal || !['New Leads', 'Customer Service'].includes(deal.Pipeline?.name) || deal.Contact_Name?.id !== input.contactId) throw new Error('Select a deal belonging to this client.')
+    if (!Number.isFinite(Date.parse(event.Start_DateTime))) throw new Error('This meeting has no valid start time. Correct it in Bigin before connecting it.')
     const module = event.$related_module || event.$se_module
     if (event.Related_To?.id && !(event.Related_To.id === input.dealId && ['Deals', 'Pipelines'].includes(module)) && !(event.Related_To.id === input.contactId && module === 'Contacts')) throw new Error('This meeting is already linked to another record.')
     if (event.Recurring_Activity || event.$recurrence_id) throw new Error('Select a single meeting, not a recurring series.')
@@ -45,8 +46,8 @@ export async function linkMeeting(input, request = biginRequest, loadMembers = g
       const fresh = (await request(`Pipelines/${input.dealId}`)).data?.[0]
       if (Date.parse(fresh?.Evaluation_date_and_hour) !== Date.parse(saved.Start_DateTime)) throw new Error('Field readback differs.')
     } catch {
-      warning = 'Meeting connected, but the Bigin evaluation field could not be updated. The app uses the linked meeting time.'
+      warning = 'The meeting is connected, but Evaluation date and hour under Other Info could not be saved and verified in Bigin. Refresh and connect the same meeting again to retry.'
     }
-    return { linked: true, evaluationTime: saved.Start_DateTime, warning }
+    return { linked: true, evaluationTime: saved.Start_DateTime, evaluationSaved: !warning, warning }
   } finally { keys.forEach(key => pending.delete(key)) }
 }

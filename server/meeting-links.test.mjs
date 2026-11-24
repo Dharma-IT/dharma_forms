@@ -27,6 +27,7 @@ test('connects the actual Bigin relationship and synchronizes evaluation from th
   assert.equal(result.linked, true)
   assert.equal(result.evaluationTime, original.Start_DateTime)
   assert.equal(result.warning, undefined)
+  assert.equal(result.evaluationSaved, true)
   assert.deepEqual(writes, [
     ['Events/12', { data: [{ id: '12', Related_To: { id: '56' }, $related_module: 'Deals' }], trigger: [] }],
     ['Pipelines/56', { data: [{ id: '56', Evaluation_date_and_hour: original.Start_DateTime }], trigger: [] }],
@@ -60,5 +61,32 @@ test('a field synchronization failure reports the saved connection without claim
     return request(path, method, body)
   }, members)
   assert.equal(result.linked, true)
-  assert.match(result.warning, /Meeting connected/)
+  assert.equal(result.evaluationSaved, false)
+  assert.match(result.warning, /Other Info/)
+})
+
+test('does not confirm the Other Info date when Bigin readback is empty or differs', async () => {
+  for (const value of [undefined, '2026-11-26T14:00:00-05:00']) {
+    const { request } = crm()
+    let updated = false
+    const result = await linkMeeting(input, async (path, method, body) => {
+      if (path === 'Pipelines/56' && method === 'PUT') updated = true
+      if (path === 'Pipelines/56' && !method && updated) return { data: [{ ...deal, Evaluation_date_and_hour: value }] }
+      return request(path, method, body)
+    }, members)
+    assert.equal(result.linked, true)
+    assert.equal(result.evaluationSaved, false)
+    assert.match(result.warning, /could not be saved and verified/)
+  }
+})
+
+test('verifies equivalent Bigin evaluation timestamps across timezone offsets', async () => {
+  const { request } = crm()
+  let updated = false
+  const result = await linkMeeting(input, async (path, method, body) => {
+    if (path === 'Pipelines/56' && method === 'PUT') updated = true
+    if (path === 'Pipelines/56' && !method && updated) return { data: [{ ...deal, Evaluation_date_and_hour: '2026-11-25T19:00:00Z' }] }
+    return request(path, method, body)
+  }, members)
+  assert.equal(result.evaluationSaved, true)
 })

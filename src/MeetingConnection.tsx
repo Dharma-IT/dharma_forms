@@ -42,7 +42,11 @@ export default function MeetingConnection({ meeting, booking, onChanged }: { mee
       <button type="button" disabled={!clientId || !dealId || !eventId || busy} onClick={() => run(async () => {
         const selected = meeting || meetings.find(event => event.id === eventId)
         const result = await api(`/api/calendar/meetings/${eventId}/deal`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dealId, contactId: clientId, version: selected?.version }) })
-        setSuccess(`Meeting connected. Evaluation date: ${format(result.evaluationTime)} ET.${result.warning ? ` ${result.warning}` : ''}`)
+        if (!result.evaluationSaved) {
+          setError(result.warning || 'The meeting is connected, but its evaluation date could not be verified in Bigin. Refresh and retry.')
+          return
+        }
+        setSuccess(`Meeting connected. Evaluation date and hour saved under Other Info in Bigin: ${format(result.evaluationTime)} ET.`)
         onChanged?.()
       })}>{busy ? 'Please wait?' : 'Connect meeting'}</button>
     </fieldset>
