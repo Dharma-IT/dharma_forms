@@ -5,7 +5,8 @@ import { createSubmission, getFormMetadata } from './submissions.mjs'
 import { timingSafeEqual, createHash as hash } from 'node:crypto'
 import { getMembers, getBiginUsers, changeMember, setMemberBlocked, assertBookableMembers } from './teams.mjs'
 import { authenticate, publicAuthConfig } from './supabase.mjs'
-import { getCalendar } from './calendar.mjs'
+import { linkMeeting } from './meeting-links.mjs'
+import { getCalendar, cancelCalendarMeeting } from './calendar.mjs'
 import { listCalendarBlocks, changeCalendarBlock } from './calendar-blocks.mjs'
 import { extendOutOfOffice } from './out-of-office.mjs'
 import { getStageProducts, searchStageClients, getStageClient, getStageDeal, updateStageDeal, changeStageDealOwner } from './stage.mjs'
@@ -49,6 +50,22 @@ const server = createServer(async (req, res) => {
         return reply(200, { deal: await (ownerChange ? changeStageDealOwner(input, undefined, undefined, undefined, user) : updateStageDeal(input, undefined, undefined, undefined, user)) })
       }
       return reply(404, { error: 'Not found' })
+    }
+    const meetingLink = url.pathname.match(/^\/api\/calendar\/meetings\/(\d+)\/deal$/)
+    if (req.method === 'PUT' && meetingLink) {
+      if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
+      if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
+      let raw = ''
+      for await (const chunk of req) { raw += chunk; if (raw.length > 8000) return reply(413, { error: 'Request too large' }) }
+      return reply(200, await linkMeeting({ ...JSON.parse(raw), id: meetingLink[1] }))
+    }
+    const cancelMeeting = url.pathname.match(/^\/api\/calendar\/meetings\/(\d+)$/)
+    if (req.method === 'DELETE' && cancelMeeting) {
+      if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
+      if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
+      let raw = ''
+      for await (const chunk of req) { raw += chunk; if (raw.length > 8000) return reply(413, { error: 'Request too large' }) }
+      return reply(200, await cancelCalendarMeeting({ ...JSON.parse(raw), id: cancelMeeting[1] }))
     }
     if (req.method === 'GET' && url.pathname.replace(/\/$/, '') === '/api/calendar') {
       return reply(200, await getCalendar(url.searchParams.get('date')))

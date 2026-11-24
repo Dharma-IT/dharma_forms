@@ -183,7 +183,7 @@ export default function Stage() {
             <span className="stage-deal-value"><span className="stage-meta-label">DEAL VALUE</span><span>{d.amount == null ? 'Not set' : money(d.amount)}</span></span>
             <span className="stage-deal-owner"><span className="stage-owner-avatar" aria-hidden="true">{d.owner?.name?.slice(0, 1) || '-'}</span><span><span className="stage-meta-label">DEAL OWNER</span><span>{d.owner?.name || 'Not available'}</span></span></span>
             <span className="stage-created"><span className="stage-meta-label">CREATED &middot; EASTERN TIME</span><time dateTime={d.createdTime || undefined}>{createdDate(d.createdTime)}</time></span>
-            <span className="stage-created stage-evaluation"><span className="stage-meta-label">Evaluation date &middot; Eastern Time</span><time dateTime={d.evaluationTime || undefined}>{createdDate(d.evaluationTime)}</time></span>
+            <span className="stage-created stage-evaluation"><span className="stage-meta-label">Evaluation date &middot; Eastern Time</span><time dateTime={d.evaluationTime || undefined}>{d.evaluationTime ? createdDate(d.evaluationTime) : 'No linked meeting'}</time></span>
             {d.paid && <span className="stage-paid-caption">Paid{d.paidDate ? ` on ${d.paidDate}` : ''} &middot; Locked</span>}
           </button><button className="stage-change-owner" type="button" disabled={busy || d.paid} onClick={() => openOwnerChange(d.id)}>Change Deal Owner <span aria-hidden="true">&#8599;</span></button>
         </article>)}</div></>}

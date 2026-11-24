@@ -26,7 +26,7 @@ export async function getCalendar(date, request = biginRequest) {
           ownerId: event.Owner.id, allDay: Boolean(event.All_day),
           editableBlock: isManagedCalendarBlock(event),
           location: event.Venue || '', description: event.Description || '',
-          relatedTo: event.Related_To?.name || '',
+          relatedTo: event.Related_To?.name || '', relatedId: event.Related_To?.id || '', relatedModule: event.$se_module || event.$related_module || '', version: event.Modified_Time || '',
           participants: (event.Participants || []).map(person => ({
             name: person.name || '', email: person.Email || '', status: person.status || '',
           })),
@@ -36,4 +36,19 @@ export async function getCalendar(date, request = biginRequest) {
     if (!result.info?.more_records) break
   }
   return { people: unique, events }
+}
+
+export async function cancelCalendarMeeting(input, request = biginRequest, loadMembers = getMembers) {
+  if (typeof input.id !== 'string' || !/^\d+$/.test(input.id)) throw new Error('Select a valid meeting.')
+  const event = (await request(`Events/${input.id}`)).data?.[0]
+  if (!event) throw new Error('This meeting no longer exists. Refresh the calendar.')
+  const members = await loadMembers()
+  if (!members.some(member => ['sellers', 'customer-service', 'nutritionists'].includes(member.team) && member.id === event.Owner?.id)) throw new Error('This meeting is outside the team calendar.')
+  if (isManagedCalendarBlock(event)) throw new Error('Use the block editor to remove calendar blocks.')
+  if (event.Recurring_Activity || event.$recurrence_id) throw new Error('Cancel recurring meetings directly in Bigin to choose the correct occurrence.')
+  if (!input.version || input.version !== event.Modified_Time || input.ownerId !== event.Owner?.id) throw new Error('This meeting changed. Refresh the calendar before cancelling.')
+  if (event.$event_cancelled) return { cancelled: true }
+  const result = await request(`Events/${input.id}`, 'DELETE')
+  if (result.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin did not confirm cancellation. Refresh the calendar before retrying.')
+  return { cancelled: true }
 }

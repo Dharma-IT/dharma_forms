@@ -35,6 +35,8 @@ test('evaluation dates are exposed in deal details and client cards, including e
   assert.equal(stageRecord(raw, metadata).evaluationTime, null)
   const result = await getStageClient('30', async path => {
     if (path === 'Contacts/30') return { data: [{ id: '30' }] }
+    if (path.startsWith('Pipelines/20/Events?')) return { data: [{ id: '90', Related_To: { id: '20' }, Start_DateTime: evaluation }] }
+    if (path.startsWith('Pipelines/21/Events?')) return { data: [] }
     assert.ok(new URLSearchParams(path.split('?')[1]).get('fields').split(',').includes('Evaluation_date_and_hour'))
     return { data: [{ ...raw, Evaluation_date_and_hour: evaluation }, { ...raw, id: '21' }] }
   })
@@ -89,7 +91,7 @@ test('client search safely encodes names, emails, phones and criterion character
 
 test('client detail paginates related deals and product catalog excludes inactive products', async () => {
   let page = 0
-  const result = await getStageClient('30', async path => path === 'Contacts/30' ? { data: [{ id: '30', Full_Name: 'Client' }] } : { data: [{ id: String(++page), Pipeline: { name: page === 1 ? 'New Leads' : 'Customer Service' } }], info: { more_records: page === 1 } })
+  const result = await getStageClient('30', async path => path.includes('/Events?') ? { data: [] } : path === 'Contacts/30' ? { data: [{ id: '30', Full_Name: 'Client' }] } : { data: [{ id: String(++page), Pipeline: { name: page === 1 ? 'New Leads' : 'Customer Service' } }], info: { more_records: page === 1 } })
   assert.equal(result.deals.length, 2)
   const products = await getStageProducts(async () => ({ data: [{ id: '1', Product_Name: 'Active', Unit_Price: 0, Product_Active: true }, { id: '2', Product_Name: 'Inactive', Product_Active: false }] }))
   assert.deepEqual(products, [{ id: '1', name: 'Active', price: 0 }])
@@ -119,7 +121,7 @@ test('save verifies Bigin readback and never sends client-supplied totals or con
 
 
 test('paid deals remain in client results but reject updates before any write', async () => {
-  const result = await getStageClient('30', async path => path === 'Contacts/30'
+  const result = await getStageClient('30', async path => path.includes('/Events?') ? { data: [] } : path === 'Contacts/30'
     ? { data: [{ id: '30', Full_Name: 'Client' }] }
     : { data: [{ ...raw, Stage: 'PAID' }, { ...raw, id: '21' }] })
   assert.equal(result.deals.length, 2)

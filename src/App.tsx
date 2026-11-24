@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { bookingConfig as config } from './booking-config'
 import './App.css'
+import MeetingConnection from './MeetingConnection'
 import { authenticatedFetch as fetch } from './auth'
 
 type Details = {
@@ -39,7 +40,7 @@ function App() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState<{ contactReused: boolean; dealId: string } | null>(null)
+  const [saved, setSaved] = useState<{ contactReused: boolean; dealId: string; contactId: string } | null>(null)
   const submissionKey = useRef(crypto.randomUUID())
   const submittedDetails = useRef('')
   useEffect(() => {
@@ -138,6 +139,7 @@ function App() {
         <p className="connection-note booking-timezone-note"><strong>Before choosing a time: select New York.</strong><br />Book in Eastern Time — New York (America/New_York). Select this timezone in the calendar below before choosing a time. New York observes EST in winter and EDT in summer.</p>
         {bookingUrl ? <><div className="booking-calendar-toolbar"><div><strong>Choose your appointment</strong><span>Search New York in the calendar timezone dropdown.</span></div><a href={bookingUrl} target="_blank" rel="noreferrer">Open full-size calendar &#8599;</a></div><iframe key={host?.id} className="booking-frame" title={`Book a meeting with ${host?.name}`} src={bookingUrl} referrerPolicy="strict-origin-when-cross-origin" /><a className="calendar-link" href={bookingUrl} target="_blank" rel="noreferrer">Open calendar in a new tab ↗</a><p className="form-footnote">Complete the booking in the calendar to receive its confirmation. Client details may need to be entered again.</p></> : <div className="calendar-placeholder"><span className="calendar-icon" aria-hidden="true">▦</span><h3>Your team member’s calendar goes here.</h3><p>The form is ready to preview. Add this team member’s Bigin Booking Page link to enable appointment scheduling.</p><span className="preview-pill">PREVIEW · NO APPOINTMENT BOOKED</span></div>}
         <div className="connection-note" role="status">{saved?.contactReused ? 'Existing contact linked.' : 'Contact created.'} Deal saved to {pipeline?.name}. The appointment is only booked after you complete the calendar.</div>
+        {saved && <MeetingConnection key={saved.dealId} booking={{ dealId: saved.dealId, contactId: saved.contactId, ownerId: details.host }} />}
         <button className="primary" type="button" onClick={startNewBooking}>Book another appointment</button>
         <button className="back-button" type="button" onClick={() => setStep(1)}>← Back to details</button>
       </div>}

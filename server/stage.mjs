@@ -1,4 +1,5 @@
 import { biginRequest, getFormMetadata } from './submissions.mjs'
+import { meetingDate } from './meeting-links.mjs'
 import { getBiginUsers } from './teams.mjs'
 
 const pending = new Set()
@@ -41,6 +42,7 @@ export async function getStageClient(id, request = biginRequest) {
     for (const d of result.data || []) if (['New Leads', 'Customer Service'].includes(d.Pipeline?.name)) deals.push({ id: d.id, name: d.Deal_Name, pipeline: d.Pipeline.name, stage: d.Stage, paid: isPaidStage(d.Stage), paidDate: d.Paid_Date || null, createdTime: d.Created_Time || null, evaluationTime: d.Evaluation_date_and_hour || null, owner: { id: d.Owner?.id || '', name: d.Owner?.name || '' }, amount: d.Amount, modified: d.Modified_Time })
     if (!result.info?.more_records) break
   }
+  await Promise.all(deals.map(async deal => { deal.evaluationTime = await meetingDate(deal.id, request) }))
   return { client: { id: c.id, name: c.Full_Name || [c.First_Name, c.Last_Name].filter(Boolean).join(' '), email: c.Email || '', phone: c.Phone || c.Mobile || '' }, deals }
 }
 
@@ -69,6 +71,7 @@ export async function getStageDeal(id, request = biginRequest, loadMetadata = ge
   const [result, metadata] = await Promise.all([request(`Pipelines/${id}`), loadMetadata(request)])
   if (!result.data?.[0]) throw new Error('This deal no longer exists.')
   const record = stageRecord(result.data[0], metadata)
+  record.evaluationTime = await meetingDate(id, request)
   // Internal validation-only fields need not be exposed to the browser.
   const { allowedStages, ...deal } = record
   void allowedStages

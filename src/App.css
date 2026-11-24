@@ -80,3 +80,10 @@
 .booking-calendar-toolbar span { margin-top: .4rem; font-size: .9rem; color: #617a6e; }
 .booking-calendar-toolbar a { padding: .8rem 1.1rem; background: #003d2b; border-radius: 999px; color: white; text-decoration: none; font-size: .9rem; }
 @media (max-width: 48rem) { .booking-layout.calendar-layout { padding: .75rem; }.booking-calendar-toolbar a { width: 100%; text-align: center; } }
+
+.meeting-connection { margin: 24px 0; padding: 20px; border: 1px solid #b8ccbf; border-radius: 12px; background: #f5faf7; color: #173f30; font-size: 14px; line-height: 1.6; }
+.meeting-connection fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.meeting-connection label { display: block; margin: 12px 0; }
+.meeting-connection input, .meeting-connection select { display: block; width: 100%; min-width: 0; padding: 10px; border: 1px solid #9bb5a7; border-radius: 6px; background: white; color: #173f30; font: inherit; }
+.meeting-connection button { padding: 10px 16px; margin: 6px 8px 6px 0; background: #174d37; color: white; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+.meeting-connection button:disabled { opacity: .55; cursor: default; }
