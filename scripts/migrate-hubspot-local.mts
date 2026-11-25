@@ -5,7 +5,9 @@ import { resolve } from 'node:path'
 import { canonicalPerson, cleanRow, columns, csv, dealColumns, dealExportRow } from '../src/migration.ts'
 import { biginRequest, getFormMetadata } from '../server/submissions.mjs'
 
-const root = resolve('.migration-local')
+const root = resolve(process.env.MIGRATION_ROOT || '.migration-local')
+const start = process.env.MIGRATION_START ? Date.parse(process.env.MIGRATION_START) : 0
+if (!Number.isFinite(start)) throw Error('Invalid migration start date')
 await mkdir(root, {recursive:true})
 const tokenKey = Object.keys(process.env).find(k => /HUBSPOT.*(TOKEN|KEY)/i.test(k))
 if (!tokenKey) throw Error('No HubSpot token configured')
@@ -40,7 +42,7 @@ for (const archived of ['false','true']) {
     after=page.paging?.next?.after ?? ''
   } while(after)
 }
-const names = ['dealname','meeting_type','evaluation_date_and_hour_2','phone','agent_lead_management','classification','dealstage','closedate','hubspot_owner_id','amount','paid_date_all_pipelines','pipeline','hs_tag_ids','channel','source','noted','payment_type','product','installment'].filter(n=>fields.some((f:any)=>f.name===n))
+const names = ['dealname','meeting_type','evaluation_date_and_hour_2','phone','agent_lead_management','classification','dealstage','closedate','hubspot_owner_id','amount','paid_date_all_pipelines','pipeline','hs_tag_ids','channel','source','noted','payment_type','product','installment','installment_fee', ...fields.filter((f:any)=>/^(?:nombre_producto|valor_producto|cantidad_producto|tipo_de_tratamiento|desired_treatment|value_desired_treatment|quantity_desired_treatment)/.test(f.name)).map((f:any)=>f.name)].filter(n=>fields.some((f:any)=>f.name===n))
 const label = (name:string,value:string) => {
   const f=fields.find((f:any)=>f.name===name)
   return value ? value.split(';').map(v=>f?.options?.find((o:any)=>o.value===v)?.label??v).join(';') : ''
@@ -67,7 +69,7 @@ async function partition(low:number,high:number):Promise<void>{
  try {count=JSON.parse(await readFile(file,'utf8'))}catch(err:any){if(err.code!=='ENOENT')throw err;count=await search({filterGroups,limit:1,properties:[]});await writeFile(file,JSON.stringify({total:count.total}))}
  if(count.total>9000){const mid=Math.floor((low+high)/2);if(mid===low)throw Error('Too many deals at one timestamp');await partition(low,mid);await partition(mid,high)}else if(count.total)intervals.push([low,high])
 }
-await partition(0,cutoff)
+await partition(start,cutoff)
 console.log(JSON.stringify({phase:'partitioned',intervals:intervals.length}))
 let nextInterval=0
 async function readIntervals(){
@@ -84,6 +86,11 @@ async function readIntervals(){
 }
 await Promise.all([readIntervals(),readIntervals(),readIntervals(),readIntervals()])
 if(new Set(deals.map(d=>d.id)).size!==deals.length)throw Error('Duplicate deal IDs in search export')
+if (process.env.MIGRATION_FETCH_ONLY === '1') {
+  await writeFile(resolve(root, 'source-deals.json'), JSON.stringify(deals))
+  console.log(JSON.stringify({ phase: 'source-ready', deals: deals.length, start: new Date(start).toISOString(), cutoff: new Date(cutoff).toISOString() }))
+  process.exit(0)
+}
 // Search results do not include associations. Fetch associations in batches.
 const associationDir=resolve(root,'associations');await mkdir(associationDir,{recursive:true})
 deals.sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true}))

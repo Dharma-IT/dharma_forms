@@ -2,7 +2,7 @@ import MigrationSpecialExport from './MigrationSpecialExport'
 import { useEffect, useState } from 'react'
 import './Migration.css'
 
-type LocalStatus = { status: string; files?: string[]; ready?: Record<string, number>; reviewByPipeline?: Record<string, number>; selected?: number; completedAt?: string; productAssociation?: { pipelines: Record<string, { attachedRows: number; attachedDeals: number; pendingRows: number; pendingDeals: number }> } }
+type LocalStatus = { dateRange?: { start: string; through: string; timezone: string }; duplicateCheck?: { sourceRows: number; heldForReview: number; ready: number }; status: string; files?: string[]; ready?: Record<string, number>; reviewByPipeline?: Record<string, number>; selected?: number; completedAt?: string; productAssociation?: { pipelines: Record<string, { attachedRows: number; attachedDeals: number; pendingRows: number; pendingDeals: number }> } }
 const pipelines = ['New Leads', 'Customer Service']
 export default function Migration() {
   const [pipeline, setPipeline] = useState('New Leads')
@@ -28,6 +28,7 @@ export default function Migration() {
   const review = status?.reviewByPipeline?.[pipeline] ?? 0
   const associations = status?.productAssociation?.pipelines[pipeline]
   return <main className="migration"><header><span className="migration-eyebrow">HUBSPOT â†’ BIGIN</span><h1>Pipeline migration</h1><p>Your deals are fetched directly from HubSpot. Choose a pipeline and download one file at a time.</p></header>
+    {status?.dateRange && <section><h2>Incremental export</h2><p>Created from {new Date(status.dateRange.start).toLocaleString('en-US', {timeZone: status.dateRange.timezone})} through {new Date(status.dateRange.through).toLocaleString('en-US', {timeZone: status.dateRange.timezone})} (Eastern Time).</p>{status.duplicateCheck && <><p>{status.duplicateCheck.sourceRows} source deals checked against live Bigin records. {status.duplicateCheck.ready} deals are ready; {status.duplicateCheck.heldForReview} possible duplicates are withheld for review. Repeat purchases may be legitimate; compare them before importing.</p><a href="/__local-migration/files/duplicate-review.csv" download>Download possible duplicate review</a></>}</section>}
     <div className="migration-tabs" role="tablist" aria-label="Pipeline">{pipelines.map(name => <button role="tab" aria-selected={pipeline === name} aria-controls="pipeline-downloads" id={'tab-'+name.toLowerCase().replaceAll(' ','-')} key={name} onClick={() => setPipeline(name)}>{name}</button>)}</div>
     <MigrationSpecialExport key={pipeline} pipeline={pipeline} />
     <section id="pipeline-downloads" role="tabpanel" aria-labelledby={'tab-'+slug}><span className="migration-eyebrow">{pipeline === 'New Leads' ? 'HUBSPOT: NEW LEADS 2025' : 'HUBSPOT: CUSTOMER SERVICE'}</span><h2>{pipeline}</h2>

@@ -4,7 +4,7 @@ import type { Plugin } from 'vite'
 
 export function localMigration(): Plugin {
   return { name: 'local-migration-downloads', apply: 'serve', configureServer(server) {
-    const root = resolve(server.config.root, '.migration-local')
+    const root = resolve(server.config.root, process.env.MIGRATION_ROOT || '.migration-local')
     server.middlewares.use('/__local-migration', async (req, res) => {
       res.setHeader('Cache-Control', 'no-store')
       const address = req.socket.remoteAddress ?? ''
@@ -34,7 +34,7 @@ export function localMigration(): Plugin {
           return
         }
         const filename = path.replace(/^\/files\//, '')
-        if (!path.startsWith('/files/') || !/^(?:(?:new-leads|customer-service)-(?:\d+|review|audit|products|associated-products|associated-products-completed|financial-audit|skipped-special)\.csv|review\.csv|audit\.csv|summary\.json)$/.test(filename)) { res.statusCode = 404; res.end(); return }
+        if (!path.startsWith('/files/') || !/^(?:(?:new-leads|customer-service)-(?:\d+|review|audit|products|associated-products|associated-products-completed|financial-audit|skipped-special)\.csv|review\.csv|audit\.csv|duplicate-review\.csv|summary\.json)$/.test(filename)) { res.statusCode = 404; res.end(); return }
         // Only offer completed exports, never raw source caches or credentials.
         await readFile(resolve(root, 'exports/summary.json'), 'utf8')
         const file = await readFile(resolve(root, 'exports', filename))
