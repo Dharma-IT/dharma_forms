@@ -1,5 +1,6 @@
 import { biginRequest, getFormMetadata } from './submissions.mjs'
-import { meetingDate } from './meeting-links.mjs'
+import { dealMeetings, meetingDate } from './meeting-links.mjs'
+import { isManagedCalendarBlock } from './calendar-blocks.mjs'
 import { getBiginUsers } from './teams.mjs'
 
 const pending = new Set()
@@ -159,11 +160,30 @@ export async function changeStageDealOwner(input, request = biginRequest, loadMe
     if (input.contactId !== current.contactId) throw new Error('The selected deal does not belong to this client.')
     if (typeof input.version !== 'string' || input.version !== current.version) throw new Error('This deal changed since it was opened. Reload it before changing its owner.')
     if (!users.some(user => user.id === input.ownerId)) throw new Error('Select an active Bigin user.')
+    const meetings = await dealMeetings(input.id, request)
     const saved = await request('Pipelines', 'PUT', { data: [{ id: input.id, Owner: { id: input.ownerId } }], trigger: [] })
     if (saved.data?.[0]?.code !== 'SUCCESS') throw new Error('Bigin did not confirm the owner change. Reload the deal before retrying.')
     const fresh = await getStageDeal(input.id, request, loadMetadata)
     if (fresh.owner.id !== input.ownerId) throw new Error('Bigin returned a different owner. Reload the deal and review before retrying.')
-    if (actor) fresh.auditWarning = await addStageAuditNote(current, fresh, actor, request)
+    let meetingWarning
+    try {
+      for (const meeting of meetings) {
+        // Re-read each event: never move an appointment that has since been
+        // cancelled, unlinked, or reassigned to a different deal.
+        const event = (await request(`Events/${meeting.id}`)).data?.[0]
+        if (!event || event.$event_cancelled || isManagedCalendarBlock(event)) continue
+        if (event.Related_To?.id !== input.id || !['Deals', 'Pipelines'].includes(event.$related_module || event.$se_module)) throw new Error('The meeting connection changed.')
+        if (event.Owner?.id === input.ownerId) continue
+        const result = await request(`Events/${event.id}`, 'PUT', { data: [{ id: event.id, Owner: { id: input.ownerId } }], trigger: [] })
+        if (result.data?.[0]?.code !== 'SUCCESS') throw new Error('Meeting transfer was not confirmed.')
+        const savedEvent = (await request(`Events/${event.id}`)).data?.[0]
+        if (savedEvent?.Owner?.id !== input.ownerId) throw new Error('Meeting owner readback differs.')
+      }
+    } catch {
+      meetingWarning = 'The deal owner was changed, but not all linked meetings could be transferred and verified. Refresh the deal and confirm the handoff to the same owner again to retry. Check the team calendar before considering the handoff complete.'
+    }
+    const auditWarning = actor ? await addStageAuditNote(current, fresh, actor, request) : null
+    fresh.auditWarning = [meetingWarning, auditWarning].filter(Boolean).join(' ') || null
     return fresh
   } finally { pending.delete(input.id) }
 }

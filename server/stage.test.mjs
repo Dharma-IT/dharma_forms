@@ -143,6 +143,7 @@ test('ownership changes write only the deal owner and verify Bigin readback', as
   let record = { ...raw, Owner: { id: '70', name: 'Original' } }
   let writes = 0
   const updated = await changeStageDealOwner({ ...input(), ownerId: '80', stage: 'PAID' }, async (path, method, body) => {
+    if (path.startsWith('Pipelines/20/Events?')) return { data: [] }
     if (method === 'PUT') {
       writes++
       assert.deepEqual(body, { data: [{ id: '20', Owner: { id: '80' } }], trigger: [] })
@@ -154,6 +155,56 @@ test('ownership changes write only the deal owner and verify Bigin readback', as
   assert.equal(writes, 1)
   assert.equal(updated.owner.id, '80')
   assert.equal(updated.stage, raw.Stage)
+  assert.equal(updated.auditWarning, null)
+})
+
+test('handoff moves every linked event to the new calendar without changing times or participants', async () => {
+  let record = { ...raw, Owner: { id: '70', name: 'Ana' } }
+  const events = ['901', '902'].map(id => ({ id, Owner: { id: '70' }, Related_To: { id: '20' }, $related_module: 'Deals', Start_DateTime: '2026-11-26T12:00:00-05:00', End_DateTime: '2026-11-26T12:20:00-05:00', Participants: [{ name: 'Client' }] }))
+  const original = structuredClone(events)
+  const request = async (path, method, body) => {
+    if (path.startsWith('Pipelines/20/Events?')) return { data: events }
+    if (path.startsWith('Events/')) {
+      const event = events.find(event => path === `Events/${event.id}`)
+      assert.ok(event)
+      if (method === 'PUT') {
+        assert.deepEqual(body, { data: [{ id: event.id, Owner: { id: '80' } }], trigger: [] })
+        event.Owner = { id: '80' }
+        return { data: [{ code: 'SUCCESS' }] }
+      }
+      return { data: [event] }
+    }
+    if (method === 'PUT') { record = { ...record, Owner: { id: '80', name: 'Paula' } }; return { data: [{ code: 'SUCCESS' }] } }
+    return { data: [record] }
+  }
+  const saved = await changeStageDealOwner({ ...input(), ownerId: '80' }, request, async () => metadata, async () => [{ id: '80' }])
+  assert.equal(saved.auditWarning, null)
+  assert.deepEqual(events, original.map(event => ({ ...event, Owner: { id: '80' } })))
+})
+
+test('failed meeting transfer reports partial success and same-owner retry repairs it', async () => {
+  let record = { ...raw, Owner: { id: '70' } }
+  let event = { id: '901', Owner: { id: '70' }, Related_To: { id: '20' }, $related_module: 'Deals' }
+  let fail = true
+  const request = async (path, method, body) => {
+    if (path.startsWith('Pipelines/20/Events?')) return { data: [event] }
+    if (path === 'Events/901') {
+      if (method === 'PUT') {
+        if (fail) return { data: [{ code: 'ERROR' }] }
+        event = { ...event, ...body.data[0] }
+        return { data: [{ code: 'SUCCESS' }] }
+      }
+      return { data: [event] }
+    }
+    if (method === 'PUT') { record = { ...record, ...body.data[0] }; return { data: [{ code: 'SUCCESS' }] } }
+    return { data: [record] }
+  }
+  const handoff = () => changeStageDealOwner({ ...input(), ownerId: '80' }, request, async () => metadata, async () => [{ id: '80' }])
+  assert.match((await handoff()).auditWarning, /deal owner was changed.*not all linked meetings/)
+  assert.equal(record.Owner.id, '80')
+  fail = false
+  assert.equal((await handoff()).auditWarning, null)
+  assert.equal(event.Owner.id, '80')
 })
 
 test('ownership changes reject paid deals, stale records, unrelated contacts and inactive owners before writes', async () => {
