@@ -2,7 +2,7 @@ import MigrationSpecialExport from './MigrationSpecialExport'
 import { useEffect, useState } from 'react'
 import './Migration.css'
 
-type LocalStatus = { dateRange?: { start: string; through: string; timezone: string }; duplicateCheck?: { sourceRows: number; heldForReview: number; ready: number }; status: string; files?: string[]; ready?: Record<string, number>; reviewByPipeline?: Record<string, number>; selected?: number; completedAt?: string; productAssociation?: { pipelines: Record<string, { attachedRows: number; attachedDeals: number; pendingRows: number; pendingDeals: number }> } }
+type LocalStatus = { contacts?: { ready: number; realEmails: number; dummyEmails: number; existing: number; repeated: number; files: string[] }; dateRange?: { start: string; through: string; timezone: string }; duplicateCheck?: { sourceRows: number; heldForReview: number; ready: number }; status: string; files?: string[]; ready?: Record<string, number>; reviewByPipeline?: Record<string, number>; selected?: number; completedAt?: string; productAssociation?: { pipelines: Record<string, { attachedRows: number; attachedDeals: number; pendingRows: number; pendingDeals: number }> } }
 const pipelines = ['New Leads', 'Customer Service']
 export default function Migration() {
   const [pipeline, setPipeline] = useState('New Leads')
@@ -28,6 +28,13 @@ export default function Migration() {
   const review = status?.reviewByPipeline?.[pipeline] ?? 0
   const associations = status?.productAssociation?.pipelines[pipeline]
   return <main className="migration"><header><span className="migration-eyebrow">HUBSPOT â†’ BIGIN</span><h1>Pipeline migration</h1><p>Your deals are fetched directly from HubSpot. Choose a pipeline and download one file at a time.</p></header>
+    {status?.contacts && <section aria-labelledby="new-contacts-title">
+      <span className="migration-eyebrow">NEW CONTACT IMPORT FILES</span>
+      <h2 id="new-contacts-title">New Contacts</h2>
+      <p>{status.contacts.ready.toLocaleString()} contacts ready: {status.contacts.realEmails.toLocaleString()} with real emails and {status.contacts.dummyEmails.toLocaleString()} with dummy emails. {status.contacts.existing.toLocaleString()} already in Bigin and {status.contacts.repeated.toLocaleString()} repeated source contacts are excluded.</p>
+      {status.contacts.files.map((file, index) => <div className="migration-export" key={file}><div><h3>Contacts New {index + 1}</h3><p>Import into Bigin Contacts before importing the deals.</p></div><a className="migration-file" href={'/__local-migration/files/' + file} download>Download Contacts New {index + 1}</a></div>)}
+      <p><a href="/__local-migration/files/contacts-review.csv" download>Excluded contact review</a> ? <a href="/__local-migration/files/contacts-audit.csv" download>Contact audit</a></p>
+    </section>}
     {status?.dateRange && status.status === 'ready' && <section aria-labelledby="new-downloads-title">
       <span className="migration-eyebrow">NEW IMPORT FILES</span>
       <h2 id="new-downloads-title">New deals ready to import</h2>
