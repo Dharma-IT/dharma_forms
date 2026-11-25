@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { bookingConfig as config } from './booking-config'
 import './App.css'
@@ -39,6 +39,7 @@ function App() {
   const [step, setStep] = useState(1)
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [error, setError] = useState('')
+  const [confirmation, setConfirmation] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<{ contactReused: boolean; dealId: string; contactId: string } | null>(null)
   const submissionKey = useRef(crypto.randomUUID())
@@ -81,7 +82,7 @@ function App() {
       setError('A save was already attempted with different details. Check Bigin, then refresh to start a new submission.'); return
     }
     submittedDetails.current = snapshot
-    setSaving(true); setError('')
+    setSaving(true); setError(''); setConfirmation('')
     try {
       const response = await fetch('/api/bigin/submissions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': submissionKey.current }, body: snapshot })
       const data = await response.json()
@@ -90,15 +91,20 @@ function App() {
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not reach Bigin. Please retry.') }
     finally { setSaving(false) }
   }
-  function startNewBooking() {
+  const startNewBooking = useCallback(() => {
     submissionKey.current = crypto.randomUUID()
     submittedDetails.current = ''
     setDetails({ ...initial })
     setSaved(null)
     setError('')
+    setConfirmation('')
     setStep(1)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  }, [])
+  const handleBookingConfirmed = useCallback(() => {
+    startNewBooking()
+    setConfirmation('Appointment confirmed and linked to the deal. You can book another appointment below.')
+  }, [startNewBooking])
   let bookingUrl = ''
   try { const url = new URL(host?.bookingUrl || ''); if (url.protocol === 'https:') bookingUrl = url.href } catch { /* Host has no configured booking page yet. */ }
   return <main className={`booking-layout${step === 2 ? ' calendar-layout' : ''}`}>
@@ -112,6 +118,7 @@ function App() {
     </aside>
     <section className="form-panel" aria-labelledby="form-title">
       <header className="panel-header"><span className="step-label">STEP {String(step).padStart(2, '0')} OF 02</span><span className="internal-badge">TEAM BOOKING</span><h2 id="form-title">{step === 1 ? 'Let’s get acquainted.' : 'Find the right time.'}</h2><p>{step === 1 ? 'Tell us about your client and who they’ll be meeting.' : 'Choose an available appointment on your team member’s calendar.'}</p></header>
+      {confirmation && <p className="connection-note booking-confirmation" role="status">{confirmation}</p>}
       {step === 1 ? <form onSubmit={next}>
         {error && <p className="connection-note" role="alert">{error}</p>}
         <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
@@ -139,7 +146,7 @@ function App() {
         <p className="connection-note booking-timezone-note"><strong>Before choosing a time: select New York.</strong><br />Book in Eastern Time — New York (America/New_York). Select this timezone in the calendar below before choosing a time. New York observes EST in winter and EDT in summer.</p>
         {bookingUrl ? <><div className="booking-calendar-toolbar"><div><strong>Choose your appointment</strong><span>Search New York in the calendar timezone dropdown.</span></div><a href={bookingUrl} target="_blank" rel="noreferrer">Open full-size calendar &#8599;</a></div><iframe key={host?.id} className="booking-frame" title={`Book a meeting with ${host?.name}`} src={bookingUrl} referrerPolicy="strict-origin-when-cross-origin" /><a className="calendar-link" href={bookingUrl} target="_blank" rel="noreferrer">Open calendar in a new tab ↗</a><p className="form-footnote">Complete the booking in the calendar to receive its confirmation. Client details may need to be entered again.</p></> : <div className="calendar-placeholder"><span className="calendar-icon" aria-hidden="true">▦</span><h3>Your team member’s calendar goes here.</h3><p>The form is ready to preview. Add this team member’s Bigin Booking Page link to enable appointment scheduling.</p><span className="preview-pill">PREVIEW · NO APPOINTMENT BOOKED</span></div>}
         <div className="connection-note" role="status">{saved?.contactReused ? 'Existing contact linked.' : 'Contact created.'} Deal saved to {pipeline?.name}. The appointment is only booked after you complete the calendar.</div>
-        {saved && <MeetingConnection key={saved.dealId} booking={{ submissionKey: submissionKey.current }} />}
+        {saved && <MeetingConnection key={saved.dealId} booking={{ submissionKey: submissionKey.current }} onConfirmed={handleBookingConfirmed} />}
         <button className="primary" type="button" onClick={startNewBooking}>Book another appointment</button>
         <button className="back-button" type="button" onClick={() => setStep(1)}>← Back to details</button>
       </div>}
