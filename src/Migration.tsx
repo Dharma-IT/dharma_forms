@@ -28,6 +28,16 @@ export default function Migration() {
   const review = status?.reviewByPipeline?.[pipeline] ?? 0
   const associations = status?.productAssociation?.pipelines[pipeline]
   return <main className="migration"><header><span className="migration-eyebrow">HUBSPOT â†’ BIGIN</span><h1>Pipeline migration</h1><p>Your deals are fetched directly from HubSpot. Choose a pipeline and download one file at a time.</p></header>
+    {status?.dateRange && status.status === 'ready' && <section aria-labelledby="new-downloads-title">
+      <span className="migration-eyebrow">NEW IMPORT FILES</span>
+      <h2 id="new-downloads-title">New deals ready to import</h2>
+      {pipelines.flatMap(name => (status.files || []).filter(file => file.startsWith(name.toLowerCase().replaceAll(' ', '-') + '-')).map((file, index) => (
+        <div className="migration-export" key={file}>
+          <div><h3>{name} New {index + 1}</h3><p>{Math.min(10000, (status.ready?.[name] || 0) - index * 10000).toLocaleString()} deals ? CSV</p></div>
+          <a className="migration-file" href={'/__local-migration/files/' + file} download>Download {name} New {index + 1}</a>
+        </div>
+      )))}
+    </section>}
     {status?.dateRange && <section><h2>Incremental export</h2><p>Created from {new Date(status.dateRange.start).toLocaleString('en-US', {timeZone: status.dateRange.timezone})} through {new Date(status.dateRange.through).toLocaleString('en-US', {timeZone: status.dateRange.timezone})} (Eastern Time).</p>{status.duplicateCheck && <><p>{status.duplicateCheck.sourceRows} source deals checked against live Bigin records. {status.duplicateCheck.ready} deals are ready; {status.duplicateCheck.heldForReview} possible duplicates are withheld for review. Repeat purchases may be legitimate; compare them before importing.</p><a href="/__local-migration/files/duplicate-review.csv" download>Download possible duplicate review</a></>}</section>}
     <div className="migration-tabs" role="tablist" aria-label="Pipeline">{pipelines.map(name => <button role="tab" aria-selected={pipeline === name} aria-controls="pipeline-downloads" id={'tab-'+name.toLowerCase().replaceAll(' ','-')} key={name} onClick={() => setPipeline(name)}>{name}</button>)}</div>
     <MigrationSpecialExport key={pipeline} pipeline={pipeline} />
