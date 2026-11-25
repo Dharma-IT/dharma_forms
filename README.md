@@ -326,3 +326,29 @@ requirement and uses the local API export rather than a manual CSV upload.
 Review and audit files are also split per pipeline. Local download endpoints
 are available only in development and accept loopback connections only.
 
+
+
+## Automatic meeting connection
+
+New form submissions register a 24-hour watch. The API checks the exact contact's
+Bigin Events every 30 seconds and connects exactly one newly created, active,
+non-recurring event within the booking window. The event host can differ from
+the deal owner: Bigin's booking page determines the actual event host. The
+verified connection synchronizes the evaluation date. Existing events and events
+linked elsewhere are excluded. Multiple possible matches or competing pending
+submissions for the same contact remain unresolved rather than attaching the
+wrong appointment. There is no manual linking UI or HTTP endpoint.
+
+The booking screen displays status only and retries status checks automatically.
+The background worker retries CRM failures and date synchronization independently
+of the browser. Use the same client email on the calendar so Bigin associates
+the event with the form's contact. Bigin's embedded calendar does not provide a
+documented per-submission callback/reference, so ambiguous bookings cannot be
+guaranteed automatic resolution with this integration.
+
+This uses the existing `.bigin-submissions` receipts. Run one API instance with
+persistent storage for that directory so pending watches survive deployments
+and restarts. Ephemeral hosting can lose pending watches on redeploy. Existing
+submissions without a watch are not retroactively matched. Live API reads verified
+contact/event associations, but automated tests use simulated CRM writes; a real
+booking must still be verified after deployment.

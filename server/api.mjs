@@ -1,11 +1,11 @@
 import { createServer } from 'node:http'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { createSubmission, getFormMetadata } from './submissions.mjs'
 import { timingSafeEqual, createHash as hash } from 'node:crypto'
 import { getMembers, getBiginUsers, changeMember, setMemberBlocked, assertBookableMembers } from './teams.mjs'
 import { authenticate, publicAuthConfig } from './supabase.mjs'
-import { linkMeeting } from './meeting-links.mjs'
+import { reconcileBooking } from './automatic-meetings.mjs'
 import { getCalendar, cancelCalendarMeeting, rescheduleCalendarMeeting } from './calendar.mjs'
 import { listCalendarBlocks, changeCalendarBlock } from './calendar-blocks.mjs'
 import { extendOutOfOffice } from './out-of-office.mjs'
@@ -51,13 +51,10 @@ const server = createServer(async (req, res) => {
       }
       return reply(404, { error: 'Not found' })
     }
-    const meetingLink = url.pathname.match(/^\/api\/calendar\/meetings\/(\d+)\/deal$/)
-    if (req.method === 'PUT' && meetingLink) {
-      if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
-      if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
-      let raw = ''
-      for await (const chunk of req) { raw += chunk; if (raw.length > 8000) return reply(413, { error: 'Request too large' }) }
-      return reply(200, await linkMeeting({ ...JSON.parse(raw), id: meetingLink[1] }))
+    const bookingStatus = url.pathname.match(/^\/api\/bigin\/submissions\/([a-f0-9-]{36})\/meeting$/)
+    if (req.method === 'GET' && bookingStatus) {
+      const progress = JSON.parse(await readFile(new URL(`${bookingStatus[1]}.json`, directory), 'utf8'))
+      return reply(200, { complete: Boolean(progress.meetingWatch?.complete), status: progress.meetingWatch?.status || 'Waiting for the confirmed booking in Bigin.' })
     }
     const cancelMeeting = url.pathname.match(/^\/api\/calendar\/meetings\/(\d+)$/)
     if (['DELETE', 'PATCH'].includes(req.method) && cancelMeeting) {
@@ -128,7 +125,7 @@ const server = createServer(async (req, res) => {
     pending.add(key)
     try {
       let progress
-      try { progress = JSON.parse(await readFile(file,'utf8')) } catch(error) { if(error.code !== 'ENOENT') throw error; progress = {fingerprint} }
+      try { progress = JSON.parse(await readFile(file,'utf8')) } catch(error) { if(error.code !== 'ENOENT') throw error; progress = {fingerprint, meetingWatch: { ownerId: details.host, started: new Date().toISOString() }} }
       if(progress.fingerprint !== fingerprint) return reply(409,{error:'This submission key belongs to different details. Refresh before starting another booking.'})
       if(progress.dealId) return reply(200,{contactId:progress.contactId,dealId:progress.dealId,contactReused:progress.contactReused})
       if(progress.dealAttempted) return reply(409,{error:'A previous deal save may have completed. Check Bigin before starting another submission.'})
@@ -156,3 +153,37 @@ if (process.env.RENDER) {
   void maintainOutOfOffice()
   setInterval(maintainOutOfOffice, 12 * 60 * 60 * 1000).unref()
 }
+
+let reconcilingMeetings = false
+async function maintainBookingMeetings() {
+  if (reconcilingMeetings) return
+  reconcilingMeetings = true
+  try {
+    const receipts = []
+    for (const name of await readdir(directory)) {
+      if (!/^[a-f0-9-]{36}\.json$/.test(name) || pending.has(name.slice(0, -5))) continue
+      try { receipts.push({ name, progress: JSON.parse(await readFile(new URL(name, directory), 'utf8')) }) }
+      catch (error) { console.error('Could not read booking receipt:', error.message) }
+    }
+    for (const { name, progress } of receipts) {
+      const key = name.slice(0, -5)
+      if (pending.has(key)) continue
+      pending.add(key)
+      try {
+        if (await reconcileBooking(progress, receipts.map(receipt => receipt.progress))) {
+          await writeFile(new URL(name, directory), JSON.stringify(progress), { mode: 0o600 })
+        }
+      } catch (error) {
+        console.error('Could not automatically connect booking:', error.message)
+        if (progress.meetingWatch) {
+          progress.meetingWatch.status = 'Appointment connection is delayed. Retrying automatically.'
+          try { await writeFile(new URL(name, directory), JSON.stringify(progress), { mode: 0o600 }) }
+          catch (saveError) { console.error('Could not save booking retry:', saveError.message) }
+        }
+      } finally { pending.delete(key) }
+    }
+  } finally { reconcilingMeetings = false }
+}
+// Runs independently of the browser, including after the booking tab closes.
+void maintainBookingMeetings().catch(error => console.error('Booking reconciliation failed:', error.message))
+setInterval(() => { void maintainBookingMeetings().catch(error => console.error('Booking reconciliation failed:', error.message)) }, 30000).unref()
