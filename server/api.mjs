@@ -9,7 +9,7 @@ import { reconcileBooking } from './automatic-meetings.mjs'
 import { getCalendar, cancelCalendarMeeting, rescheduleCalendarMeeting } from './calendar.mjs'
 import { listCalendarBlocks, changeCalendarBlock } from './calendar-blocks.mjs'
 import { extendOutOfOffice } from './out-of-office.mjs'
-import { getStageProducts, searchStageClients, getStageClient, getStageDeal, updateStageDeal, changeStageDealOwner } from './stage.mjs'
+import { getStageProducts, searchStageClients, getStageClient, getStageDeal, updateStageDeal, changeStageDealOwner, getDealCreationOptions, createStageDeal } from './stage.mjs'
 
 const directory = new URL('../.bigin-submissions/', import.meta.url)
 await mkdir(directory, { recursive: true })
@@ -33,6 +33,28 @@ const server = createServer(async (req, res) => {
     if (!user) return reply(401, { error: 'Sign in to continue.' })
     const url = new URL(req.url, 'http://localhost')
     if (url.pathname.startsWith('/api/stage/')) {
+      if (req.method === 'GET' && url.pathname === '/api/stage/creation-options') return reply(200, { pipelines: await getDealCreationOptions() })
+      if (req.method === 'POST' && url.pathname === '/api/stage/deals') {
+        if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return reply(403, { error: 'Origin not allowed' })
+        if (!req.headers['content-type']?.startsWith('application/json')) return reply(415, { error: 'JSON required' })
+        const key = req.headers['idempotency-key']
+        if (typeof key !== 'string' || !/^[a-f0-9-]{36}$/.test(key)) return reply(400, { error: 'A valid creation key is required' })
+        const lock = `deal:${user.id}:${key}`
+        if (pending.has(lock)) return reply(409, { error: 'This deal is already being created. Please wait.' })
+        let raw = ''
+        for await (const chunk of req) { raw += chunk; if (raw.length > 8000) return reply(413, { error: 'Request too large' }) }
+        const input = JSON.parse(raw)
+        const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex')
+        const file = new URL(`deal-${createHash('sha256').update(lock).digest('hex')}.json`, directory)
+        pending.add(lock)
+        try {
+          let progress
+          try { progress = JSON.parse(await readFile(file, 'utf8')) } catch (error) { if (error.code !== 'ENOENT') throw error; progress = { fingerprint } }
+          if (progress.fingerprint !== fingerprint) return reply(409, { error: 'This creation key belongs to different details.' })
+          const save = value => writeFile(file, JSON.stringify(value), { mode: 0o600 })
+          return reply(200, { deal: await createStageDeal(input, progress, undefined, undefined, undefined, save) })
+        } finally { pending.delete(lock) }
+      }
       if (req.method === 'GET' && url.pathname === '/api/stage/users') return reply(200, { users: await getBiginUsers() })
       if (req.method === 'GET' && url.pathname === '/api/stage/products') return reply(200, { products: await getStageProducts() })
       if (req.method === 'GET' && url.pathname === '/api/stage/search') return reply(200, await searchStageClients(url.searchParams.get('q')))

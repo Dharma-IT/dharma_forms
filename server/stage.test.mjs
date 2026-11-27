@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addStageAuditNote, changeStageDealOwner, stageRecord, stageUpdate, stageLineTotal, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
+import { createStageDeal, getDealCreationOptions, addStageAuditNote, changeStageDealOwner, stageRecord, stageUpdate, stageLineTotal, searchStageClients, getStageClient, getStageProducts, updateStageDeal } from './stage.mjs'
 
 const metadata = { pipelines: [{ id: '10', name: 'New Leads', stages: ['Unused global stage'], fields: [
   { api_name: 'Sub_Pipeline', pick_list_values: [{ actual_value: 'Old sub', display_value: 'Sales', maps: [{ api_name: 'Stage', pick_list_values: [{ actual_value: 'PAID' }, { actual_value: 'Waiting for Payment' }] }] }] },
@@ -314,4 +314,51 @@ test('ownership-only notes omit stage, products, and unchanged payment details',
     assert.doesNotMatch(note.Note_Content, /Stage:|Products:|Payment notes:|Installments:|Unchanged|No changes/)
     return { data: [{ code: 'SUCCESS' }] }
   }), null)
+})
+
+
+test('Deals creation uses CRM contact names, existing prefixes and Waiting for Payment, then loads the editor', async () => {
+  const meta = structuredClone(metadata)
+  meta.pipelines[0].subPipelines = ['Old sub']
+  meta.pipelines[0].stages = ['Waiting for Payment', 'PAID']
+  assert.deepEqual(await getDealCreationOptions(undefined, async () => meta), [{ id: '10', name: 'New Leads', stage: 'Waiting for Payment' }])
+  for (const [team, prefix] of [['sellers', 'Sellers'], ['customer-service', 'CS'], ['nutritionists', 'Nutri']]) {
+    let created
+    let writes = 0
+    const progress = {}
+    const request = async (path, method, body) => {
+      if (path === 'Contacts/30') return { data: [{ Full_Name: 'CRM Contact' }] }
+      if (method === 'POST') { writes++; created = body.data[0]; return { data: [{ code: 'SUCCESS', details: { id: '20' } }] } }
+      if (path === 'Pipelines/20') return { data: [{ ...raw, ...created, id: '20', Owner: { id: '70', name: 'Owner' } }] }
+      return { data: [] }
+    }
+    const input = { contactId: '30', ownerId: '70', pipelineId: '10', team, stage: 'PAID', name: 'Untrusted name' }
+    const load = async () => meta
+    const users = async () => [{ id: '70' }]
+    const deal = await createStageDeal(input, progress, request, load, users)
+    assert.equal(deal.name, `${prefix} - CRM Contact`)
+    assert.equal(deal.stage, 'Waiting for Payment')
+    assert.equal(created.Sub_Pipeline, 'Sales')
+    assert.equal(created.Amount, 0)
+    await createStageDeal(input, progress, request, load, users)
+    assert.equal(writes, 1)
+  }
+})
+
+test('Deals creation refuses unsupported choices and never retries uncertain writes', async () => {
+  const input = { contactId: '30', ownerId: '70', pipelineId: '10', team: 'sellers' }
+  await assert.rejects(createStageDeal({ ...input, team: 'other' }, {}), /Choose Customer/)
+  await assert.rejects(createStageDeal(input, { attempted: true }), /previous creation/)
+  const meta = structuredClone(metadata)
+  meta.pipelines[0].subPipelines = ['Sales']
+  meta.pipelines[0].stages = ['PAID']
+  let writes = 0
+  await assert.rejects(createStageDeal(input, {}, async () => { writes++; return { data: [{ Full_Name: 'Contact' }] } }, async () => meta, async () => [{ id: '70' }]), /Waiting for Payment/)
+  assert.equal(writes, 1) // Contact lookup only; no CRM mutation.
+  meta.pipelines[0].stages = ['Waiting for Payment']
+  const progress = {}
+  const request = async (path, method) => { if (method === 'POST') throw new Error('Timeout'); return { data: [{ Full_Name: 'Contact' }] } }
+  await assert.rejects(createStageDeal(input, progress, request, async () => meta, async () => [{ id: '70' }]), /uncertain/)
+  assert.equal(progress.attempted, true)
+  await assert.rejects(createStageDeal(input, progress, request), /previous creation/)
 })

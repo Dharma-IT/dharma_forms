@@ -234,3 +234,50 @@ export async function addStageAuditNote(before, after, actor, request = biginReq
     return 'Your deal changes were saved, but the audit note could not be added to Bigin. Check the Notes permissions on the Bigin connection. Do not repeat the deal update.'
   }
 }
+
+export async function getDealCreationOptions(request = biginRequest, loadMetadata = getFormMetadata) {
+  const metadata = await loadMetadata(request)
+  return metadata.pipelines.filter(p => p.subPipelines?.length === 1).flatMap(p => {
+    const stage = p.stages.find(s => s.trim().toLowerCase() === 'waiting for payment')
+    return stage ? [{ id: p.id, name: p.name, stage }] : []
+  })
+}
+
+export async function createStageDeal(input, progress, request = biginRequest, loadMetadata = getFormMetadata, loadUsers = getBiginUsers, save = async () => {}) {
+  assertId(input.contactId)
+  assertId(input.ownerId)
+  const prefix = { sellers: 'Sellers', 'customer-service': 'CS', nutritionists: 'Nutri' }[input.team]
+  if (!prefix) throw new Error('Choose Customer Service, Sellers, or Nutri.')
+  if (progress.dealId) return getStageDeal(progress.dealId, request, loadMetadata)
+  if (progress.attempted) throw new Error('A previous creation may have completed. Check Bigin before creating another deal.')
+  const [metadata, contactResult, users] = await Promise.all([loadMetadata(request), request(`Contacts/${input.contactId}`), loadUsers(request)])
+  const pipeline = metadata.pipelines.find(p => p.id === input.pipelineId)
+  const stage = pipeline?.stages.find(s => s.trim().toLowerCase() === 'waiting for payment')
+  if (!pipeline || !stage || pipeline.subPipelines?.length !== 1) throw new Error('Choose a pipeline with a Waiting for Payment stage and one sub-pipeline.')
+  if (!users.some(u => u.id === input.ownerId)) throw new Error('Choose an active deal owner.')
+  const contact = contactResult.data?.[0]
+  const name = contact?.Full_Name || [contact?.First_Name, contact?.Last_Name].filter(Boolean).join(' ')
+  if (!name) throw new Error('The contact no longer exists or has no name.')
+  const dealName = `${prefix} - ${name}`
+  if (dealName.length > (pipeline.fields.find(f => f.api_name === 'Deal_Name')?.length || 255)) throw new Error('The contact name is too long for a deal name.')
+  const sub = pipeline.fields.find(f => f.api_name === 'Sub_Pipeline')?.pick_list_values?.[0]
+  const payload = { Deal_Name: dealName, Contact_Name: { id: input.contactId }, Owner: { id: input.ownerId }, Pipeline: { id: pipeline.id, name: pipeline.name }, Sub_Pipeline: sub?.display_value || pipeline.subPipelines[0], Stage: stage, Amount: 0 }
+  progress.attempted = true
+  await save(progress)
+  let result
+  try { result = await request('Pipelines', 'POST', { data: [payload], trigger: [] }) }
+  catch (error) {
+    if (error.definitiveRejection) { progress.attempted = false; await save(progress); throw error }
+    throw new Error('Deal creation outcome is uncertain. Check Bigin before creating another deal.')
+  }
+  const row = result.data?.[0]
+  if (row?.code !== 'SUCCESS' || !row.details?.id) {
+    if (row?.status === 'error') { progress.attempted = false; await save(progress) }
+    throw new Error(`Bigin did not confirm deal creation${row?.details?.api_name ? `: ${row.details.api_name}` : ''}. Check Bigin before retrying.`)
+  }
+  progress.dealId = row.details.id
+  await save(progress)
+  const deal = await getStageDeal(progress.dealId, request, async () => metadata)
+  if (deal.contactId !== input.contactId || deal.name !== dealName || deal.stage !== stage || deal.owner.id !== input.ownerId) throw new Error('Deal created, but some details differ. Review it in Bigin before creating another.')
+  return deal
+}

@@ -196,3 +196,6 @@
 .stage-saved-dialog button { display: flex; justify-content: center; gap: 1rem; width: 100%; min-height: 2.75rem; margin-top: 1.5rem; padding: .85rem 1rem; border: 0; border-radius: 999px; color: white; background: #184c39; cursor: pointer; }
 .stage-saved-dialog .stage-saved-warning { padding: .85rem; border: 1px solid #e6d2a4; border-radius: .7rem; background: #fff8e8; color: #7c5d28; font-size: .75rem; text-align: left; }
 @media (prefers-reduced-motion: reduce) { .stage-saved-dialog { animation: none; } }
+
+.stage-create-fields { display: grid; gap: 16px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.stage-create-deal { padding: 20px 0; border-bottom: 1px solid #ddd; margin-bottom: 24px; }

@@ -12,7 +12,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {window.location.pathname.replace(/\/$/, '') === '/migration'
       ? <Migration />
-      : <AuthGate>{window.location.pathname.replace(/\/$/, '') === '/stage' ? <Stage /> : window.location.pathname.replace(/\/$/, '') === '/calendar' ? <Calendar /> : window.location.pathname.replace(/\/$/, '') === '/manage-team' ? <ManageTeam /> : <App />}</AuthGate>}
+      : <AuthGate>{window.location.pathname.replace(/\/$/, '') === '/deals' ? <Stage allowCreate /> : window.location.pathname.replace(/\/$/, '') === '/stage' ? <Stage /> : window.location.pathname.replace(/\/$/, '') === '/calendar' ? <Calendar /> : window.location.pathname.replace(/\/$/, '') === '/manage-team' ? <ManageTeam /> : <App />}</AuthGate>}
   </StrictMode>,
 )
 

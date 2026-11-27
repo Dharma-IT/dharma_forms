@@ -41,6 +41,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   return <><div className="auth-bar"><a className="auth-brand" href="/" aria-label="Dharma Nutrition Clinic home"><img src="/DHARMA%20-%20LOGO%20(9).png" alt="" /><span>Dharma Nutrition Clinic</span></a><nav className="auth-navigation" aria-label="Main navigation">{[
     { href: '/', label: 'Booking page' },
     { href: '/stage', label: 'Stages' },
+    { href: '/deals', label: 'Deals' },
     { href: '/calendar', label: 'Calendar' },
   ].map(item => <a key={item.href} href={item.href} aria-current={currentPath === item.href ? 'page' : undefined}>{item.label}</a>)}</nav><span className="auth-email">{session.user.email}</span><button onClick={async () => { setBusy(true); try { const client = await getAuthClient(); const { error } = await client.auth.signOut(); if (error) throw error; setSession(null) } catch (error) { window.alert(error instanceof Error ? error.message : 'Could not sign out.') } finally { setBusy(false) } }} disabled={busy}>Sign out</button></div><div key={session.user.id}>{children}</div></>
 }

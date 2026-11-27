@@ -34,7 +34,27 @@ function SavedDialog({ message, warning, onClose }: { message: string; warning?:
   </dialog>
 }
 
-export default function Stage() {
+export default function Stage({ allowCreate = false }: { allowCreate?: boolean }) {
+  const [creationOptions, setCreationOptions] = useState<{ id: string; name: string; stage: string }[]>([])
+  const [creationUsers, setCreationUsers] = useState<{ id: string; name: string }[]>([])
+  const [newTeam, setNewTeam] = useState('')
+  const [newPipeline, setNewPipeline] = useState('')
+  const [newOwner, setNewOwner] = useState('')
+  const creationKey = useRef(crypto.randomUUID())
+  const [creationLocked, setCreationLocked] = useState(false)
+  async function createDeal(event: FormEvent) {
+    event.preventDefault()
+    if (!client || busy || creationLocked) return
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const data = await api('deals', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': creationKey.current }, body: JSON.stringify({ contactId: client.id, team: newTeam, pipelineId: newPipeline, ownerId: newOwner }) })
+      setDeals(current => [data.deal, ...current.filter(d => d.id !== data.deal.id)])
+      showDeal(data.deal); creationKey.current = crypto.randomUUID()
+      setNotice('Deal created. Add products, update the stage, or enter payment details below.')
+    } catch (reason) { setCreationLocked(true); setError(reason instanceof Error ? reason.message : 'Could not create the deal. Check Bigin before creating another.') }
+    finally { setBusy(false) }
+  }
+
   const [query, setQuery] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [searched, setSearched] = useState(false)
@@ -63,6 +83,12 @@ export default function Stage() {
   const dealList = useRef<HTMLElement>(null)
   const selection = useRef(0)
   const actionPanel = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (!allowCreate) return
+    const controller = new AbortController()
+    Promise.all([api('creation-options', { signal: controller.signal }), api('users', { signal: controller.signal })]).then(([options, users]) => { setCreationOptions(options.pipelines); setCreationUsers(users.users) }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
+    return () => controller.abort()
+  }, [allowCreate])
   const activeAction = ownerTarget ? `owner:${ownerTarget.id}` : deal ? `edit:${deal.id}` : ''
   useEffect(() => {
     if (!activeAction) return
@@ -105,7 +131,7 @@ export default function Stage() {
   }
   async function selectClient(value: Client) {
     const serial = ++selection.current
-    setBusy(true); setError(''); setNotice(''); setOwnerTarget(null); setDeal(null); setDeals([]); setClient(value)
+    setBusy(true); setError(''); setNotice(''); setOwnerTarget(null); setDeal(null); setDeals([]); setClient(value); creationKey.current = crypto.randomUUID(); setCreationLocked(false)
     try { const data = await api(`clients/${value.id}`); if (selection.current === serial) { setClient(data.client); setDeals(data.deals) } }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load client deals.') }
     finally { setBusy(false) }
@@ -161,7 +187,7 @@ export default function Stage() {
   const nextOwner = ownerUsers.find(user => user.id === ownerId)
   const ownerChanging = Boolean(ownerTarget && ownerId)
   return <main className={`stage-page${busy ? ' stage-is-busy' : ''}`} aria-busy={busy}>
-    <header className="stage-header"><div className="stage-header-content"><span className="stage-eyebrow"><span className="stage-live-dot" /> CLIENT WORKSPACE</span><h1>Every detail.<br /><em>Moving forward.</em></h1><p>Manage stages, payments, and the people behind every deal.</p><div className="stage-header-tags"><span>Stages &amp; payments</span><span>Connected to Bigin</span></div></div><div className="stage-header-art" aria-hidden="true"><div className="stage-orbit stage-orbit-one" /><div className="stage-orbit stage-orbit-two" /><div className="stage-art-core"><svg viewBox="0 0 64 64" fill="none"><path d="M14 44 28 30l10 8 13-19M39 19h12v12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg></div><span className="stage-art-chip stage-art-chip-top">A little more momentum</span><span className="stage-art-chip stage-art-chip-bottom">One workspace. Every deal.</span></div></header>
+    <header className="stage-header"><div className="stage-header-content"><span className="stage-eyebrow"><span className="stage-live-dot" /> CLIENT WORKSPACE</span><h1>{allowCreate ? 'Deals.' : 'Every detail.'}<br /><em>Moving forward.</em></h1><p>Manage stages, payments, and the people behind every deal.</p><div className="stage-header-tags"><span>Stages &amp; payments</span><span>Connected to Bigin</span></div></div><div className="stage-header-art" aria-hidden="true"><div className="stage-orbit stage-orbit-one" /><div className="stage-orbit stage-orbit-two" /><div className="stage-art-core"><svg viewBox="0 0 64 64" fill="none"><path d="M14 44 28 30l10 8 13-19M39 19h12v12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg></div><span className="stage-art-chip stage-art-chip-top">A little more momentum</span><span className="stage-art-chip stage-art-chip-bottom">One workspace. Every deal.</span></div></header>
     <nav className="stage-progress" aria-label="Workspace progress"><span className="stage-step is-active"><b>01</b> Find a client</span><span className={`stage-step${client ? ' is-active' : ''}`}><b>02</b> Choose a deal</span><span className={`stage-step${activeAction ? ' is-active' : ''}`}><b>03</b> Make your move</span></nav>
     {savedConfirmation && <SavedDialog {...savedConfirmation} onClose={() => { setSavedConfirmation(null); returnToDeals() }} />}
     {error && <p className="stage-error" role="alert">{error}</p>}
@@ -175,7 +201,15 @@ export default function Stage() {
     </aside><section className="stage-workspace">
       {client && <section ref={dealList} tabIndex={-1} aria-label="Select a deal" className="stage-card stage-deal-list-panel"><h2>{client.name}</h2><p>{client.email} {client.phone && <> · {client.phone}</>}</p>{activeAction ? <div className="stage-collapsed-selection"><div><span className="stage-eyebrow">{ownerTarget ? 'CHANGING DEAL OWNER' : 'EDITING DEAL'}</span><strong>{(ownerTarget || deal)?.name}</strong><span>{(ownerTarget || deal)?.stage}</span></div><button type="button" disabled={busy} onClick={chooseAnotherDeal}>Choose another deal <span aria-hidden="true">&#8595;</span></button></div> : <h3>Select a deal</h3>}
         {!activeAction && <>
-        {!busy && !deals.length && <p>No New Leads or Customer Service deals are linked to this client. Create or link their deal in Bigin first.</p>}
+        {allowCreate && <form className="stage-create-deal" onSubmit={createDeal}><h3>Create a deal</h3><fieldset disabled={busy || creationLocked} className="stage-create-fields">
+          <label>Deal type<select required value={newTeam} onChange={e => setNewTeam(e.target.value)}><option value="">Choose a deal type</option><option value="customer-service">Customer Service</option><option value="sellers">Sellers</option><option value="nutritionists">Nutri</option></select></label>
+          <label>Pipeline<select required value={newPipeline} onChange={e => setNewPipeline(e.target.value)}><option value="">Choose a pipeline</option>{creationOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+          <label>Deal owner<select required value={newOwner} onChange={e => setNewOwner(e.target.value)}><option value="">Choose an owner</option>{creationUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
+          <label>Deal name<input readOnly value={newTeam ? `${({ sellers: 'Sellers', 'customer-service': 'CS', nutritionists: 'Nutri' } as Record<string, string>)[newTeam]} - ${client.name}` : ''} /></label>
+          <label>Initial stage<input readOnly value={creationOptions.find(p => p.id === newPipeline)?.stage || 'Waiting for Payment'} /></label>
+          <button className="stage-primary" disabled={!newTeam || !newPipeline || !newOwner}>Create deal</button>
+        </fieldset>{!creationOptions.length && <p>No pipelines with a Waiting for Payment stage are available.</p>}{creationLocked && <p role="alert">Creation paused. Check Bigin for the deal, then search for the contact again before creating another.</p>}</form>}
+        {!busy && !deals.length && <p>No New Leads or Customer Service deals are linked to this client.{!allowCreate && <> Create one in the <a href="/deals">Deals tab</a>.</>}</p>}
         <div className="stage-deals">{deals.map(d => <article className={`stage-deal-option${d.paid ? ' is-paid' : ''}${deal?.id === d.id ? ' is-selected' : ''}`} key={d.id}>
           <button disabled={busy || d.paid} className={`stage-deal-select${d.paid ? ' stage-paid-deal' : ''}`} aria-pressed={deal?.id === d.id} onClick={() => selectDeal(d.id)}>
             <span className="stage-deal-topline"><span className={`stage-category${dealCategory(d) === 'Sellers' ? ' stage-category-sales' : ''}`}>{dealCategory(d)}</span><span className={`stage-status${d.paid ? ' status-paid' : d.stage?.toUpperCase() === 'LOST' ? ' status-lost' : ''}`}>{d.stage}</span></span>
